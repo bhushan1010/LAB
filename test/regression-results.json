@@ -1,0 +1,97 @@
+{
+  "timestamp": "2026-09-11T18:47:52.551Z",
+  "environment": {
+    "frontendUrl": "http://localhost:3000",
+    "backendUrl": "http://localhost:5000",
+    "browser": "Google Chrome 134.x (Headless CDP)"
+  },
+  "summary": {
+    "total": 8,
+    "passed": 4,
+    "failed": 4,
+    "blocked": 0
+  },
+  "steps": {
+    "step1": {
+      "name": "Cross-Role End-to-End Workflow",
+      "status": "PASS",
+      "details": {
+        "patientUhid": "WALK-R226-6303",
+        "visitCode": "MIND212183",
+        "reportCode": "REP-202609-9157",
+        "qrToken": "330c8ac1757335a0c7fd48430c35ca05b1ff8f40527de6cac56110d05a4074df",
+        "adminFoundCount": 1
+      }
+    },
+    "step2": {
+      "name": "Print Queue Role Scoping (Server-Side)",
+      "status": "FAIL",
+      "details": {
+        "frontDeskCount": 0,
+        "adminCount": 3,
+        "serverScopingEnforced": true
+      }
+    },
+    "step3": {
+      "name": "Role-Scoped Dashboard-to-Action Flows",
+      "status": "FAIL",
+      "details": {
+        "hasQuickIntake": false,
+        "hasTestingQueue": true,
+        "hasAdminFeed": false
+      }
+    },
+    "step4": {
+      "name": "Audit Log Completeness Across Roles",
+      "status": "PASS",
+      "details": {
+        "hasCreatePat": true,
+        "hasCreateVisit": true,
+        "hasCreateTest": true,
+        "hasGenReport": true,
+        "totalAudits": 25
+      }
+    },
+    "step5": {
+      "name": "Public QR Verification Page Matching Live Data",
+      "status": "PASS",
+      "details": {
+        "hasVerifiedReport": true,
+        "hasSunriseBranding": true,
+        "hasGeneratedPatient": true,
+        "hasElectrolyteTest": true
+      }
+    },
+    "step6": {
+      "name": "Full Real-Identity Residual Branding Sweep",
+      "status": "PASS",
+      "details": {
+        "forbiddenTermsChecked": 9,
+        "domResidualHits": []
+      }
+    },
+    "step7": {
+      "name": "Offline Multi-Report Batch Sync & Idempotence",
+      "status": "FAIL",
+      "details": {
+        "batchSize": 2,
+        "firstPushStatus": 400,
+        "retryPushStatus": 400
+      }
+    },
+    "step8": {
+      "name": "Client-Side Direct Hash URL Tampering Guarding",
+      "status": "FAIL",
+      "details": {
+        "hashAfterUsersAttempt": "#/dashboard",
+        "hashAfterAuditAttempt": "#/dashboard",
+        "hashAfterStudioAttempt": "#/studio",
+        "redirectedToDashboard": false
+      }
+    }
+  },
+  "security": {},
+  "brandingSweep": {},
+  "dataIntegrity": {},
+  "consoleErrors": []
+}

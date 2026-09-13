@@ -1,0 +1,111 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  body {
+    background-color: #0b1326;
+    color: #f1f5f9;
+    font-family: var(--font-sans);
+    min-height: 100vh;
+  }
+
+  /* Sleek clinical scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0b1326;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #475569;
+  }
+}
+
+/* Custom Clinical Slate Precision utilities */
+.clinical-card {
+  background-color: #1e293b;
+  border: 1px solid #334155;
+}
+
+.clinical-input {
+  background-color: #0f172a;
+  border: 1px solid #334155;
+  color: #f1f5f9;
+  transition: all 0.15s ease-in-out;
+}
+.clinical-input:focus {
+  outline: none;
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 1px #0ea5e9;
+}
+
+
+/* ===================================================
+   PRECISION A4 PRINT ENGINE (Pixel-Perfect 1-Page Output)
+   =================================================== */
+
+@page {
+  size: A4 portrait;
+  margin: 0mm !important;
+}
+
+@media print {
+  /* 1. Global Print Reset for printable container */
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 2. Hide all non-printable application UI */
+  .no-print,
+  header,
+  nav,
+  aside,
+  button,
+  form,
+  .zoom-bar {
+    display: none !important;
+  }
+
+  /* 3. Strip backgrounds and ensure exact color reproduction */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 4. Precision 1-Page A4 Sheet */
+  #printable-report {
+    position: relative !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 210mm !important;
+    height: 296mm !important;
+    max-height: 296mm !important;
+    min-height: 296mm !important;
+    margin: 0 auto !important;
+    padding: 10mm 12mm 14mm 12mm !important;
+    box-sizing: border-box !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    border: none !important;
+    transform: none !important;
+    overflow: hidden !important;
+    page-break-after: avoid !important;
+    page-break-before: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}

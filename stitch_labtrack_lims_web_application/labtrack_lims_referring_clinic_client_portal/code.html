@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><title>LabTrack LIMS</title><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500;600&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "status-info-bg": "#0C4A6E", "on-tertiary": "#3c0091", "dark-border-focus": "#0EA5E9", "dark-text-secondary": "#94A3B8", "status-info-base": "#0284C7", "inverse-primary": "#006591", "surface-container-lowest": "#060e20", "surface-variant": "#2d3449", "error": "#ffb4ab", "surface-container-highest": "#2d3449", "tertiary-container": "#a986ff", "status-error-base": "#F43F5E", "on-secondary-fixed": "#002113", "tertiary": "#d0bcff", "surface-container-low": "#131b2e", "on-secondary-container": "#00311f", "outline-variant": "#3e4850", "light-bg-base": "#F8FAFC", "secondary": "#4edea3", "on-primary-fixed-variant": "#004c6e", "on-background": "#dae2fd", "surface-container": "#171f33", "dark-text-muted": "#64748B", "outline": "#88929b", "on-tertiary-fixed-variant": "#5516be", "on-primary": "#00344d", "surface": "#0b1326", "light-surface-card": "#FFFFFF", "primary-fixed": "#c9e6ff", "on-secondary": "#003824", "secondary-fixed": "#6ffbbe", "dark-surface-card": "#1E293B", "surface-container-high": "#222a3d", "status-admin-bg": "#4C1D95", "primary-container": "#0ea5e9", "error-container": "#93000a", "light-surface-elevated": "#F1F5F9", "inverse-surface": "#dae2fd", "secondary-fixed-dim": "#4edea3", "inverse-on-surface": "#283044", "on-surface-variant": "#bec8d2", "surface-bright": "#31394d", "secondary-container": "#00a572", "on-primary-fixed": "#001e2f", "background": "#0b1326", "on-surface": "#dae2fd", "light-border-default": "#E2E8F0", "status-error-bg": "#881337", "status-admin-base": "#8B5CF6", "dark-border-default": "#334155", "on-error": "#690005", "primary-fixed-dim": "#89ceff", "on-tertiary-fixed": "#23005c", "dark-text-primary": "#F1F5F9", "status-success-bg": "#064E3B", "on-tertiary-container": "#3e0097", "status-success-base": "#10B981", "on-secondary-fixed-variant": "#005236", "dark-bg-base": "#0F172A", "on-primary-container": "#003751", "light-text-secondary": "#475569", "tertiary-fixed-dim": "#d0bcff", "surface-dim": "#0b1326", "surface-tint": "#89ceff", "primary": "#89ceff", "tertiary-fixed": "#e9ddff", "dark-surface-elevated": "#334155", "status-warning-base": "#F59E0B", "on-error-container": "#ffdad6", "light-text-primary": "#0F172A", "status-warning-bg": "#78350F", "dark-border-subtle": "#1E293B" }, "borderRadius": { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" }, "spacing": { "space-sm": "0.75rem", "table-row-compact": "2.5rem", "nav-height": "4rem", "space-md": "1rem", "space-xxl": "3rem", "table-row-standard": "3.25rem", "space-xs": "0.5rem", "space-xl": "2rem", "space-lg": "1.5rem", "space-xxs": "0.25rem" }, "fontFamily": { "headline-sm": ["Inter"], "headline-xl": ["Inter"], "caption": ["Inter"], "body-dense": ["Inter"], "headline-lg": ["Inter"], "body-base": ["Inter"], "data-mono": ["JetBrains Mono"], "badge-label": ["JetBrains Mono"], "body-medium": ["Inter"] }, "fontSize": { "headline-sm": ["16px", { "lineHeight": "22px", "letterSpacing": "-0.01em", "fontWeight": "600" }], "headline-xl": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "caption": ["12px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "500" }], "body-dense": ["13px", { "lineHeight": "18px", "fontWeight": "400" }], "headline-lg": ["22px", { "lineHeight": "28px", "letterSpacing": "-0.015em", "fontWeight": "600" }], "body-base": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "data-mono": ["13px", { "lineHeight": "18px", "fontWeight": "500" }], "badge-label": ["11px", { "lineHeight": "14px", "letterSpacing": "0.04em", "fontWeight": "600" }], "body-medium": ["14px", { "lineHeight": "20px", "fontWeight": "500" }] } } } };</script></head><body class="bg-dark-bg-base text-dark-text-primary min-h-screen antialiased selection:bg-primary selection:text-on-primary"><header class="fixed top-0 left-0 w-full z-50 bg-dark-bg-base/95 backdrop-blur-md border-b border-dark-border-default"><div class="h-nav-height w-full px-space-lg flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-lg shrink-0"><div class="flex items-center gap-space-sm"><img alt="LabTrack LIMS Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1Wkib6Yk_mS0xcVDL_5lnLKNHuZWcKwwCm4SXIC6apFEufCxxHNfZqJEPBGDyMNgOcyOw3qoWoi_sdhP8GHGiDRbCLHjCqoSCWsxvicvRUmFfPsJqK417g2rGXGyQFjPgLND5eTeO_FZad30RB76FChIsAKexeVCTEkZksR1Q9c_9T-8QAorIY4D9RUE102-HzyApxuNuJuvc_zx06t5KSu5nhxnqmoS5gBDkfw7mGMMI3ClWuBe7Tvx0Cu"/><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-dark-text-primary tracking-tight">LabTrack LIMS</span><span class="font-caption text-caption text-dark-text-muted">Multi-Device Diagnostic Platform</span></div></div><div class="h-6 w-px bg-dark-border-default hidden xl:block"></div><nav class="flex items-center gap-space-xxs" data-active-classes="bg-surface-container-high text-primary-fixed-dim font-headline-sm"><a class="px-space-sm py-1.5 rounded-lg font-body-dense text-body-dense text-dark-text-secondary hover:text-dark-text-primary hover:bg-surface-container transition-colors" data-path="dashboard" href="#">Dashboard</a><a class="px-space-sm py-1.5 rounded-lg font-body-dense text-body-dense text-dark-text-secondary hover:text-dark-text-primary hover:bg-surface-container transition-colors" data-path="report-studio" href="#">Report Studio</a><a class="px-space-sm py-1.5 rounded-lg font-body-dense text-body-dense text-dark-text-secondary hover:text-dark-text-primary hover:bg-surface-container transition-colors" data-path="print-queue" href="#">Print Queue</a><a class="px-space-sm py-1.5 rounded-lg font-body-dense text-body-dense text-dark-text-secondary hover:text-dark-text-primary hover:bg-surface-container transition-colors" data-path="staff-management" href="#">Staff Accounts</a><a class="px-space-sm py-1.5 rounded-lg font-body-dense text-body-dense text-dark-text-secondary hover:text-dark-text-primary hover:bg-surface-container transition-colors" data-path="audit-trail" href="#">Audit Trail</a><a aria-current="page" class="px-space-sm py-1.5 rounded-lg transition-colors bg-surface-container-high text-primary-fixed-dim font-headline-sm" data-path="client-portal" href="#">Client Portal</a></nav></div><div class="flex items-center gap-space-sm shrink-0"><div class="hidden 2xl:flex items-center gap-space-xs px-2.5 py-1 rounded-full bg-status-success-bg/30 border border-status-success-base/30 text-status-success-base font-badge-label text-badge-label tracking-wide uppercase"><span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-success-base opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-status-success-base"></span></span><span>All Synced</span></div><div class="relative hidden lg:flex items-center"><select class="appearance-none bg-surface-container-low border border-dark-border-default text-dark-text-primary font-data-mono text-data-mono rounded-lg pl-2.5 pr-8 py-1.5 focus:outline-none focus:border-dark-border-focus transition-colors cursor-pointer"><option value="LAN-PC-01">LAN-PC-01 (Reception)</option><option selected="" value="LAB-TECH-03">LAB-TECH-03</option><option value="REMOTE-01">REMOTE-01</option></select><span class="material-symbols-outlined text-dark-text-muted pointer-events-none absolute right-2 text-base">expand_more</span></div><div class="relative hidden md:flex items-center"><select class="appearance-none bg-status-admin-bg/30 border border-status-admin-base/40 text-status-admin-base font-badge-label text-badge-label rounded-full pl-3 pr-7 py-1 uppercase tracking-wider focus:outline-none cursor-pointer"><option selected="" value="ADMIN">Admin</option><option value="LAB_TECH">Lab-Tech</option><option value="FRONT_DESK">Front-Desk</option></select><span class="material-symbols-outlined text-status-admin-base pointer-events-none absolute right-2 text-sm">arrow_drop_down</span></div><div class="h-5 w-px bg-dark-border-default hidden sm:block"></div><button class="p-1.5 rounded-lg border border-dark-border-default hover:bg-surface-container text-dark-text-secondary hover:text-dark-text-primary transition-colors" onclick="document.documentElement.classList.toggle('dark')" title="Toggle Theme"><span class="material-symbols-outlined text-lg block dark:hidden">dark_mode</span><span class="material-symbols-outlined text-lg hidden dark:block">light_mode</span></button><div class="flex items-center gap-space-xs pl-space-xxs"><img alt="Profile" class="w-8 h-8 rounded-full object-cover ring-1 ring-dark-border-default" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQ6RJgTkijZHtUZZaGuLYYh1EUrgx2au1JagMwr8S2L_p-N_s-YriNz0RFyyoOsSAZMSMPMBT7uF8mvA-FnuoDDf4DJhf539C1WxX7WHOOBxDXOopRio5SfQI5PHkYJLC4d8YmERYlc5W4CJqm-eAIujWatRXghK44kfvyS4hua2_b7tCdf_BRyjAF-32fqVEZhn3IUWlg2Udbg6jPng43PvjlvZpCgTzBrRcTl0z_cdRZW_bpFmOpMQ"/><div class="hidden xl:flex flex-col text-left"><span class="font-body-dense text-body-dense text-dark-text-primary font-medium leading-tight">Dr. Lab Administrator</span><span class="font-badge-label text-badge-label text-status-admin-base">ADMIN</span></div></div><a class="p-1.5 rounded-lg border border-dark-border-default hover:bg-status-error-bg/20 text-dark-text-muted hover:text-status-error-base transition-colors ml-space-xxs" data-path="login" href="#" title="Logout"><span class="material-symbols-outlined text-lg">logout</span></a></div></div></header><main class="w-full pt-nav-height bg-dark-bg-base min-h-screen"><div class="flex flex-col w-full">
+<div class="w-full max-w-7xl mx-auto px-space-md lg:px-space-xl py-space-lg space-y-space-lg">
+<!-- Top Header & Clinic Authority Banner -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-space-md bg-surface-container/70 p-space-lg rounded-xl shadow-md backdrop-blur-md">
+<div class="space-y-space-xxs">
+<div class="inline-flex items-center gap-space-xs px-2.5 py-1 rounded-full bg-status-success-bg/30 text-status-success-base font-badge-label text-badge-label uppercase tracking-wider">
+<span class="material-symbols-outlined text-sm">domain</span>
+<span>Referring Clinic Partner Portal</span>
+</div>
+<h1 class="font-headline-xl text-headline-xl text-dark-text-primary tracking-tight">
+          SAMPLE CLINIC <span class="text-dark-text-secondary font-headline-lg text-headline-lg font-normal">(Dr. R. Gupta)</span>
+</h1>
+<div class="flex items-center gap-space-xs text-dark-text-muted font-body-dense text-body-dense">
+<span class="material-symbols-outlined text-sm text-status-warning-base">lock</span>
+<span>Live sample progression board • Privacy-protected view (clinical diagnostic values &amp; billing restricted)</span>
+</div>
+</div>
+<div class="flex items-center gap-space-sm self-start md:self-auto shrink-0">
+<button class="flex items-center gap-space-xs px-space-md py-2 rounded-lg bg-surface-container-high hover:bg-surface-variant text-dark-text-primary font-body-medium text-body-medium transition-all shadow-sm active:scale-95" id="refreshBtn" onclick="triggerRefresh()">
+<span class="material-symbols-outlined text-sm text-primary" id="refreshIcon">sync</span>
+<span>Refresh Status</span>
+</button>
+</div>
+</div>
+<!-- 4 KPI Progression Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-md">
+<div class="relative overflow-hidden bg-surface-container p-space-md rounded-xl shadow-sm transition-transform hover:-translate-y-0.5">
+<div class="flex justify-between items-start">
+<span class="font-badge-label text-badge-label text-dark-text-secondary uppercase tracking-wider">Samples Today</span>
+<span class="material-symbols-outlined text-dark-text-muted text-base">today</span>
+</div>
+<div class="mt-space-xs flex items-baseline gap-space-xs">
+<span class="font-data-mono text-headline-xl text-headline-xl font-bold text-dark-text-primary">0</span>
+<span class="font-caption text-caption text-dark-text-muted">samples</span>
+</div>
+<p class="font-caption text-caption text-dark-text-muted mt-space-xxs">Since midnight 00:00</p>
+<div class="absolute bottom-0 left-0 right-0 h-0.5 bg-dark-border-default/40"></div>
+</div>
+<div class="relative overflow-hidden bg-surface-container p-space-md rounded-xl shadow-sm transition-transform hover:-translate-y-0.5">
+<div class="flex justify-between items-start">
+<span class="font-badge-label text-badge-label text-dark-text-secondary uppercase tracking-wider">This Week</span>
+<span class="material-symbols-outlined text-status-info-base text-base">date_range</span>
+</div>
+<div class="mt-space-xs flex items-baseline gap-space-xs">
+<span class="font-data-mono text-headline-xl text-headline-xl font-bold text-primary">4</span>
+<span class="font-caption text-caption text-primary/70">sent</span>
+</div>
+<p class="font-caption text-caption text-dark-text-muted mt-space-xxs">Last 7 operational days</p>
+<div class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary/40"></div>
+</div>
+<div class="relative overflow-hidden bg-surface-container p-space-md rounded-xl shadow-sm transition-transform hover:-translate-y-0.5">
+<div class="flex justify-between items-start">
+<span class="font-badge-label text-badge-label text-dark-text-secondary uppercase tracking-wider">This Month</span>
+<span class="material-symbols-outlined text-status-success-base text-base">calendar_month</span>
+</div>
+<div class="mt-space-xs flex items-baseline gap-space-xs">
+<span class="font-data-mono text-headline-xl text-headline-xl font-bold text-status-success-base">18</span>
+<span class="font-caption text-caption text-status-success-base/70">processed</span>
+</div>
+<p class="font-caption text-caption text-dark-text-muted mt-space-xxs">Current calendar cycle</p>
+<div class="absolute bottom-0 left-0 right-0 h-0.5 bg-status-success-base/40"></div>
+</div>
+<div class="relative overflow-hidden bg-surface-container p-space-md rounded-xl shadow-sm transition-transform hover:-translate-y-0.5">
+<div class="flex justify-between items-start">
+<span class="font-badge-label text-badge-label text-dark-text-secondary uppercase tracking-wider">Total Referrals</span>
+<span class="material-symbols-outlined text-status-admin-base text-base">hub</span>
+</div>
+<div class="mt-space-xs flex items-baseline gap-space-xs">
+<span class="font-data-mono text-headline-xl text-headline-xl font-bold text-dark-text-primary">142</span>
+<span class="font-caption text-caption text-dark-text-muted">all-time</span>
+</div>
+<p class="font-caption text-caption text-dark-text-muted mt-space-xxs">Cumulative clinic samples</p>
+<div class="absolute bottom-0 left-0 right-0 h-0.5 bg-status-admin-base/40"></div>
+</div>
+</div>
+<!-- Main Section: Filtering + Split Workstation View (Table & Live Tracker Drawer) -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-space-lg items-start">
+<!-- Left 8-Cols / Responsive Table Canvas -->
+<div class="xl:col-span-8 flex flex-col space-y-space-md">
+<!-- Filter Toolbar -->
+<div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-space-sm bg-surface-container p-space-sm rounded-xl shadow-sm">
+<div class="relative flex-1">
+<span class="material-symbols-outlined absolute left-3 top-2.5 text-dark-text-muted text-base pointer-events-none">search</span>
+<input class="w-full h-10 pl-9 pr-space-md rounded-lg bg-surface-container-lowest text-dark-text-primary font-body-dense text-body-dense placeholder:text-dark-text-muted focus:outline-none focus:bg-surface-container-low transition-colors" id="searchInput" oninput="handleSearch(this.value)" placeholder="Search by visit code, TRF ref, or masked initials..." type="text"/>
+</div>
+<div class="flex items-center gap-space-xs shrink-0">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-2.5 top-2.5 text-dark-text-muted text-base pointer-events-none">filter_list</span>
+<select class="appearance-none h-10 pl-8 pr-8 rounded-lg bg-surface-container-lowest text-dark-text-primary font-body-dense text-body-dense focus:outline-none cursor-pointer" id="statusFilter" onchange="handleFilter(this.value)">
+<option value="ALL">All Statuses (4)</option>
+<option value="READY">Report Ready</option>
+<option value="ANALYSIS">In Testing / Analysis</option>
+<option value="TRANSIT">Sample In-Transit</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-2.5 text-dark-text-muted text-base pointer-events-none">expand_more</span>
+</div>
+</div>
+</div>
+<!-- Privacy-Protected Samples Table Container -->
+<div class="bg-surface-container rounded-xl overflow-hidden shadow-sm">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-high text-dark-text-secondary font-headline-sm text-caption uppercase tracking-wider">
+<th class="py-3 px-space-md">Visit / Sample Code</th>
+<th class="py-3 px-space-sm">TRF Ref</th>
+<th class="py-3 px-space-md">Patient (Masked)</th>
+<th class="py-3 px-space-sm">Sample Specimen</th>
+<th class="py-3 px-space-md">Collection Date</th>
+<th class="py-3 px-space-sm">Processing Status</th>
+<th class="py-3 px-space-md text-right">Track</th>
+</tr>
+</thead>
+<tbody class="divide-y-0 text-dark-text-primary font-body-dense text-body-dense" id="samplesTbody">
+<!-- Row 1 -->
+<tr class="sample-row bg-surface-container/60 hover:bg-surface-container-high/70 cursor-pointer transition-colors" data-code="DEMO000001" data-status="READY" onclick="selectSample('DEMO000001', '0001', 'Mr. R***L D***O', '32Y • M', 'FLOURIDE PLASMA (R)', '01/Sep/2026 02:23PM', 'READY')">
+<td class="py-3 px-space-md font-data-mono text-primary font-medium">DEMO000001</td>
+<td class="py-3 px-space-sm font-data-mono text-dark-text-secondary">0001</td>
+<td class="py-3 px-space-md">
+<div class="flex flex-col">
+<span class="font-body-medium text-dark-text-primary">Mr. R***L D***O</span>
+<span class="font-caption text-caption text-dark-text-muted">32Y • M</span>
+</div>
+</td>
+<td class="py-3 px-space-sm">
+<div class="inline-flex items-center gap-1 font-data-mono text-caption text-dark-text-secondary">
+<span class="material-symbols-outlined text-sm text-status-warning-base">science</span>
+<span>FLOURIDE PLASMA (R)</span>
+</div>
+</td>
+<td class="py-3 px-space-md font-data-mono text-caption text-dark-text-secondary whitespace-nowrap">01/Sep/2026 02:23PM</td>
+<td class="py-3 px-space-sm whitespace-nowrap">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-status-success-bg/40 text-status-success-base font-badge-label text-badge-label uppercase">
+<span class="material-symbols-outlined text-xs">check_circle</span>
+<span>Report Ready</span>
+</span>
+</td>
+<td class="py-3 px-space-md text-right">
+<button class="p-1.5 rounded-lg bg-surface-container-low text-primary hover:bg-primary hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined text-base">visibility</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="sample-row bg-surface-container/30 hover:bg-surface-container-high/70 cursor-pointer transition-colors" data-code="DEMO000002" data-status="READY" onclick="selectSample('DEMO000002', '0002', 'Mrs. A***A S***A', '45Y • F', 'EDTA WHOLE BLOOD', '02/Sep/2026 11:10AM', 'READY')">
+<td class="py-3 px-space-md font-data-mono text-primary font-medium">DEMO000002</td>
+<td class="py-3 px-space-sm font-data-mono text-dark-text-secondary">0002</td>
+<td class="py-3 px-space-md">
+<div class="flex flex-col">
+<span class="font-body-medium text-dark-text-primary">Mrs. A***A S***A</span>
+<span class="font-caption text-caption text-dark-text-muted">45Y • F</span>
+</div>
+</td>
+<td class="py-3 px-space-sm">
+<div class="inline-flex items-center gap-1 font-data-mono text-caption text-dark-text-secondary">
+<span class="material-symbols-outlined text-sm text-status-error-base">bloodtype</span>
+<span>EDTA WHOLE BLOOD</span>
+</div>
+</td>
+<td class="py-3 px-space-md font-data-mono text-caption text-dark-text-secondary whitespace-nowrap">02/Sep/2026 11:10AM</td>
+<td class="py-3 px-space-sm whitespace-nowrap">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-status-success-bg/40 text-status-success-base font-badge-label text-badge-label uppercase">
+<span class="material-symbols-outlined text-xs">check_circle</span>
+<span>Report Ready</span>
+</span>
+</td>
+<td class="py-3 px-space-md text-right">
+<button class="p-1.5 rounded-lg bg-surface-container-low text-primary hover:bg-primary hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined text-base">visibility</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="sample-row bg-surface-container/60 hover:bg-surface-container-high/70 cursor-pointer transition-colors" data-code="DEMO000003" data-status="ANALYSIS" onclick="selectSample('DEMO000003', '0003', 'Mr. R***H M***A', '58Y • M', 'SERUM', '03/Sep/2026 04:30PM', 'ANALYSIS')">
+<td class="py-3 px-space-md font-data-mono text-primary font-medium">DEMO000003</td>
+<td class="py-3 px-space-sm font-data-mono text-dark-text-secondary">0003</td>
+<td class="py-3 px-space-md">
+<div class="flex flex-col">
+<span class="font-body-medium text-dark-text-primary">Mr. R***H M***A</span>
+<span class="font-caption text-caption text-dark-text-muted">58Y • M</span>
+</div>
+</td>
+<td class="py-3 px-space-sm">
+<div class="inline-flex items-center gap-1 font-data-mono text-caption text-dark-text-secondary">
+<span class="material-symbols-outlined text-sm text-status-info-base">colorize</span>
+<span>SERUM</span>
+</div>
+</td>
+<td class="py-3 px-space-md font-data-mono text-caption text-dark-text-secondary whitespace-nowrap">03/Sep/2026 04:30PM</td>
+<td class="py-3 px-space-sm whitespace-nowrap">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-status-info-bg/40 text-primary-fixed-dim font-badge-label text-badge-label uppercase">
+<span class="material-symbols-outlined text-xs animate-spin">autorenew</span>
+<span>In Analysis</span>
+</span>
+</td>
+<td class="py-3 px-space-md text-right">
+<button class="p-1.5 rounded-lg bg-surface-container-low text-primary hover:bg-primary hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined text-base">visibility</span>
+</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="sample-row bg-surface-container/30 hover:bg-surface-container-high/70 cursor-pointer transition-colors" data-code="DEMO000004" data-status="TRANSIT" onclick="selectSample('DEMO000004', '0004', 'Master K***R V***A', '12Y • M', 'SERUM', '04/Sep/2026 01:15PM', 'TRANSIT')">
+<td class="py-3 px-space-md font-data-mono text-primary font-medium">DEMO000004</td>
+<td class="py-3 px-space-sm font-data-mono text-dark-text-secondary">0004</td>
+<td class="py-3 px-space-md">
+<div class="flex flex-col">
+<span class="font-body-medium text-dark-text-primary">Master K***R V***A</span>
+<span class="font-caption text-caption text-dark-text-muted">12Y • M</span>
+</div>
+</td>
+<td class="py-3 px-space-sm">
+<div class="inline-flex items-center gap-1 font-data-mono text-caption text-dark-text-secondary">
+<span class="material-symbols-outlined text-sm text-status-warning-base">colorize</span>
+<span>SERUM</span>
+</div>
+</td>
+<td class="py-3 px-space-md font-data-mono text-caption text-dark-text-secondary whitespace-nowrap">04/Sep/2026 01:15PM</td>
+<td class="py-3 px-space-sm whitespace-nowrap">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-status-warning-bg/40 text-status-warning-base font-badge-label text-badge-label uppercase">
+<span class="material-symbols-outlined text-xs">local_shipping</span>
+<span>In-Transit</span>
+</span>
+</td>
+<td class="py-3 px-space-md text-right">
+<button class="p-1.5 rounded-lg bg-surface-container-low text-primary hover:bg-primary hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined text-base">visibility</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="flex items-center justify-between px-space-md py-space-sm bg-surface-container-high/50 text-caption font-caption text-dark-text-muted">
+<span>Displaying 4 active referral orders</span>
+<span class="flex items-center gap-1">
+<span class="inline-block w-2 h-2 rounded-full bg-status-success-base"></span>
+              Encrypted SSL Channel
+            </span>
+</div>
+</div>
+<!-- Privacy & Policy Compliance Callout -->
+<div class="p-space-md rounded-xl bg-surface-container/40 flex items-start gap-space-sm text-dark-text-muted">
+<span class="material-symbols-outlined text-primary text-xl mt-0.5">verified_user</span>
+<div class="space-y-1">
+<h4 class="font-body-medium text-body-medium text-dark-text-primary font-medium">HIPAA &amp; Digital Health Data Compliance</h4>
+<p class="font-caption text-caption leading-relaxed">
+              Patient identifiable information (PII) is securely masked with SHA-256 tokens for this external interface. Full quantitative diagnostic parameters, flags, and consolidated invoices remain restricted to direct lab portal personnel. For emergency priority unmasking, contact Central Diagnostics desk directly.
+            </p>
+</div>
+</div>
+</div>
+<!-- Right 4-Cols: Sample Timeline & Tracking View -->
+<div class="xl:col-span-4 flex flex-col space-y-space-md sticky top-20">
+<div class="bg-surface-container p-space-lg rounded-xl shadow-md space-y-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-lg">timeline</span>
+<h3 class="font-headline-sm text-headline-sm text-dark-text-primary">Sample Progression</h3>
+</div>
+<span class="px-2.5 py-0.5 rounded-full bg-status-success-bg/40 text-status-success-base font-badge-label text-badge-label uppercase" id="timelineBadge">
+              Ready
+            </span>
+</div>
+<!-- Specimen Quick Specs -->
+<div class="p-space-sm rounded-lg bg-surface-container-lowest space-y-2">
+<div class="flex justify-between items-center text-caption font-caption">
+<span class="text-dark-text-muted">Order Identifier:</span>
+<span class="font-data-mono font-medium text-primary" id="trackerCode">DEMO000001</span>
+</div>
+<div class="flex justify-between items-center text-caption font-caption">
+<span class="text-dark-text-muted">Clinic TRF No:</span>
+<span class="font-data-mono text-dark-text-primary" id="trackerTRF">#0001</span>
+</div>
+<div class="flex justify-between items-center text-caption font-caption">
+<span class="text-dark-text-muted">Patient:</span>
+<span class="font-body-medium text-dark-text-primary" id="trackerPatient">Mr. R***L D***O (32Y • M)</span>
+</div>
+<div class="flex justify-between items-center text-caption font-caption">
+<span class="text-dark-text-muted">Specimen Matrix:</span>
+<span class="font-data-mono text-status-warning-base" id="trackerSpecimen">FLOURIDE PLASMA (R)</span>
+</div>
+</div>
+<!-- Vertical Timeline Steps -->
+<div class="relative pl-6 space-y-6 pt-2">
+<!-- Continuous line background -->
+<div class="absolute left-2.5 top-3 bottom-3 w-0.5 bg-surface-container-high"></div>
+<!-- Step 1: Specimen Collected -->
+<div class="relative flex items-start gap-space-sm">
+<div class="absolute -left-6 top-1 w-5 h-5 rounded-full bg-status-success-base flex items-center justify-center text-on-secondary shadow" id="step1-dot">
+<span class="material-symbols-outlined text-xs">check</span>
+</div>
+<div class="space-y-0.5">
+<div class="flex items-center gap-space-xs">
+<span class="font-body-medium text-body-medium text-dark-text-primary font-medium">1. Specimen Collected</span>
+</div>
+<p class="font-caption text-caption text-dark-text-muted" id="step1-time">At Clinic • 01/Sep/2026 02:23 PM</p>
+</div>
+</div>
+<!-- Step 2: Received at Central Lab -->
+<div class="relative flex items-start gap-space-sm">
+<div class="absolute -left-6 top-1 w-5 h-5 rounded-full bg-status-success-base flex items-center justify-center text-on-secondary shadow" id="step2-dot">
+<span class="material-symbols-outlined text-xs">check</span>
+</div>
+<div class="space-y-0.5">
+<div class="flex items-center gap-space-xs">
+<span class="font-body-medium text-body-medium text-dark-text-primary font-medium">2. Received at Central Lab</span>
+</div>
+<p class="font-caption text-caption text-dark-text-muted" id="step2-time">Barcoded &amp; Accessioned • 01/Sep 03:10 PM</p>
+</div>
+</div>
+<!-- Step 3: In Analyzer -->
+<div class="relative flex items-start gap-space-sm">
+<div class="absolute -left-6 top-1 w-5 h-5 rounded-full bg-status-success-base flex items-center justify-center text-on-secondary shadow" id="step3-dot">
+<span class="material-symbols-outlined text-xs">check</span>
+</div>
+<div class="space-y-0.5">
+<div class="flex items-center gap-space-xs">
+<span class="font-body-medium text-body-medium text-dark-text-primary font-medium">3. In Clinical Analyzer</span>
+</div>
+<p class="font-caption text-caption text-dark-text-muted" id="step3-time">Cobas Pro 8000 • Channel B</p>
+</div>
+</div>
+<!-- Step 4: Pathologist Review -->
+<div class="relative flex items-start gap-space-sm">
+<div class="absolute -left-6 top-1 w-5 h-5 rounded-full bg-status-success-base flex items-center justify-center text-on-secondary shadow" id="step4-dot">
+<span class="material-symbols-outlined text-xs">check</span>
+</div>
+<div class="space-y-0.5">
+<div class="flex items-center gap-space-xs">
+<span class="font-body-medium text-body-medium text-dark-text-primary font-medium">4. Pathologist Review</span>
+</div>
+<p class="font-caption text-caption text-dark-text-muted" id="step4-time">Validated by Senior Pathologist</p>
+</div>
+</div>
+<!-- Step 5: Final Report Ready -->
+<div class="relative flex items-start gap-space-sm">
+<div class="absolute -left-6 top-1 w-5 h-5 rounded-full bg-status-success-base flex items-center justify-center text-on-secondary shadow" id="step5-dot">
+<span class="material-symbols-outlined text-xs">done_all</span>
+</div>
+<div class="space-y-0.5">
+<div class="flex items-center gap-space-xs">
+<span class="font-body-medium text-body-medium text-status-success-base font-semibold">5. Report Ready &amp; Dispatched</span>
+</div>
+<p class="font-caption text-caption text-status-success-base/80" id="step5-time">Encrypted PDF released to portal</p>
+</div>
+</div>
+</div>
+<!-- Clinical Download / Print Action Button -->
+<div class="pt-space-xs">
+<button class="w-full py-2.5 px-space-md rounded-lg bg-primary-container hover:bg-status-info-base text-white font-body-medium text-body-medium font-medium flex items-center justify-center gap-space-xs transition-all shadow-md active:scale-98" id="downloadReportBtn">
+<span class="material-symbols-outlined text-base">download_for_offline</span>
+<span id="downloadBtnText">Download Official Report PDF</span>
+</button>
+<p class="text-center font-caption text-caption text-dark-text-muted mt-2">
+              Cryptographically signed with SHA-256 digital stamp
+            </p>
+</div>
+</div>
+<!-- Clinic Helpdesk / Courier Notification Widget -->
+<div class="bg-surface-container/60 p-space-md rounded-xl space-y-2">
+<div class="flex items-center gap-space-xs text-status-info-base font-badge-label text-badge-label uppercase">
+<span class="material-symbols-outlined text-sm">support_agent</span>
+<span>Central Lab Courier Dispatch</span>
+</div>
+<p class="font-body-dense text-body-dense text-dark-text-secondary">
+            Next scheduled clinic specimen pickup is today at <span class="font-data-mono text-dark-text-primary font-medium">06:00 PM</span>.
+          </p>
+<div class="pt-1 flex items-center gap-2 font-caption text-caption text-dark-text-muted">
+<span class="material-symbols-outlined text-sm text-status-success-base">call</span>
+<span>Direct Line: +1 (800) 555-LABS (Ext: 104)</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+    function triggerRefresh() {
+      const icon = document.getElementById('refreshIcon');
+      icon.classList.add('animate-spin');
+      setTimeout(() => {
+        icon.classList.remove('animate-spin');
+      }, 750);
+    }
+
+    function handleSearch(term) {
+      const q = term.toLowerCase().trim();
+      const rows = document.querySelectorAll('.sample-row');
+      rows.forEach(row => {
+        const text = row.innerText.toLowerCase();
+        if (!q || text.includes(q)) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    }
+
+    function handleFilter(status) {
+      const rows = document.querySelectorAll('.sample-row');
+      rows.forEach(row => {
+        const rowStatus = row.getAttribute('data-status');
+        if (status === 'ALL' || rowStatus === status) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    }
+
+    function selectSample(code, trf, patient, demo, specimen, date, status) {
+      document.getElementById('trackerCode').textContent = code;
+      document.getElementById('trackerTRF').textContent = '#' + trf;
+      document.getElementById('trackerPatient').textContent = patient + ' (' + demo + ')';
+      document.getElementById('trackerSpecimen').textContent = specimen;
+
+      const badge = document.getElementById('timelineBadge');
+      const downloadBtn = document.getElementById('downloadReportBtn');
+      const downloadBtnText = document.getElementById('downloadBtnText');
+
+      const dot1 = document.getElementById('step1-dot');
+      const dot2 = document.getElementById('step2-dot');
+      const dot3 = document.getElementById('step3-dot');
+      const dot4 = document.getElementById('step4-dot');
+      const dot5 = document.getElementById('step5-dot');
+
+      const setSuccess = (dot) => {
+        dot.className = "absolute -left-6 top-1 w-5 h-5 rounded-full bg-status-success-base flex items-center justify-center text-on-secondary shadow";
+        dot.innerHTML = '<span class="material-symbols-outlined text-xs">check</span>';
+      };
+
+      const setPending = (dot) => {
+        dot.className = "absolute -left-6 top-1 w-5 h-5 rounded-full bg-surface-container-high flex items-center justify-center text-dark-text-muted";
+        dot.innerHTML = '<span class="material-symbols-outlined text-xs">circle</span>';
+      };
+
+      const setActive = (dot) => {
+        dot.className = "absolute -left-6 top-1 w-5 h-5 rounded-full bg-primary-container flex items-center justify-center text-white shadow";
+        dot.innerHTML = '<span class="material-symbols-outlined text-xs animate-spin">autorenew</span>';
+      };
+
+      if (status === 'READY') {
+        badge.className = "px-2.5 py-0.5 rounded-full bg-status-success-bg/40 text-status-success-base font-badge-label text-badge-label uppercase";
+        badge.textContent = "Report Ready";
+        setSuccess(dot1);
+        setSuccess(dot2);
+        setSuccess(dot3);
+        setSuccess(dot4);
+        setSuccess(dot5);
+        dot5.innerHTML = '<span class="material-symbols-outlined text-xs">done_all</span>';
+        downloadBtn.disabled = false;
+        downloadBtn.className = "w-full py-2.5 px-space-md rounded-lg bg-primary-container hover:bg-status-info-base text-white font-body-medium text-body-medium font-medium flex items-center justify-center gap-space-xs transition-all shadow-md active:scale-98 cursor-pointer";
+        downloadBtnText.textContent = "Download Official Report PDF";
+      } else if (status === 'ANALYSIS') {
+        badge.className = "px-2.5 py-0.5 rounded-full bg-status-info-bg/40 text-primary-fixed-dim font-badge-label text-badge-label uppercase";
+        badge.textContent = "In Analysis";
+        setSuccess(dot1);
+        setSuccess(dot2);
+        setActive(dot3);
+        setPending(dot4);
+        setPending(dot5);
+        downloadBtn.disabled = true;
+        downloadBtn.className = "w-full py-2.5 px-space-md rounded-lg bg-surface-container-high text-dark-text-muted font-body-medium text-body-medium font-medium flex items-center justify-center gap-space-xs cursor-not-allowed opacity-75";
+        downloadBtnText.textContent = "Report In-Progress (Pending)";
+      } else if (status === 'TRANSIT') {
+        badge.className = "px-2.5 py-0.5 rounded-full bg-status-warning-bg/40 text-status-warning-base font-badge-label text-badge-label uppercase";
+        badge.textContent = "In Transit";
+        setSuccess(dot1);
+        setActive(dot2);
+        setPending(dot3);
+        setPending(dot4);
+        setPending(dot5);
+        downloadBtn.disabled = true;
+        downloadBtn.className = "w-full py-2.5 px-space-md rounded-lg bg-surface-container-high text-dark-text-muted font-body-medium text-body-medium font-medium flex items-center justify-center gap-space-xs cursor-not-allowed opacity-75";
+        downloadBtnText.textContent = "Sample In-Transit (Pending)";
+      }
+    }
+  </script>
+</div></main></body></html>
