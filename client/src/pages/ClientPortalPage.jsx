@@ -11,6 +11,7 @@ import {
   FlaskConical,
   ShieldCheck,
   Filter,
+  XCircle,
 } from 'lucide-react';
 
 export default function ClientPortalPage() {
@@ -146,6 +147,7 @@ export default function ClientPortalPage() {
             <option value="Received">Received</option>
             <option value="In Testing">In Testing</option>
             <option value="Report Ready">Report Ready</option>
+            <option value="Cancelled">Cancelled</option>
           </select>
         </div>
       </div>
@@ -188,22 +190,33 @@ export default function ClientPortalPage() {
                   {s.collected_at || '—'}
                 </td>
                 <td className="py-3 px-4 text-center font-sans">
-                  <span
-                    className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
-                      s.status === 'Report Ready'
-                        ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
-                        : s.status === 'In Testing'
-                        ? 'bg-amber-950 text-amber-300 border-amber-800'
-                        : 'bg-sky-950 text-sky-300 border-sky-800'
-                    }`}
-                  >
-                    {s.status === 'Report Ready' ? (
-                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                    ) : (
-                      <Hourglass className="w-3 h-3" />
+                  <div className="inline-flex flex-col items-center gap-1">
+                    <span
+                      className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                        s.status === 'Cancelled'
+                          ? 'bg-rose-950 text-rose-300 border-rose-800'
+                          : s.status === 'Report Ready'
+                          ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                          : s.status === 'In Testing'
+                          ? 'bg-amber-950 text-amber-300 border-amber-800'
+                          : 'bg-sky-950 text-sky-300 border-sky-800'
+                      }`}
+                    >
+                      {s.status === 'Cancelled' ? (
+                        <XCircle className="w-3 h-3 text-rose-400" />
+                      ) : s.status === 'Report Ready' ? (
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                      ) : (
+                        <Hourglass className="w-3 h-3" />
+                      )}
+                      {s.status}
+                    </span>
+                    {s.status === 'Cancelled' && s.client_facing_reason && (
+                      <span className="text-[10px] text-rose-400/90 font-mono tracking-tight max-w-[200px] truncate" title={s.client_facing_reason}>
+                        {s.client_facing_reason}
+                      </span>
                     )}
-                    {s.status}
-                  </span>
+                  </div>
                 </td>
               </tr>
             ))}

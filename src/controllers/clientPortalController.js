@@ -22,13 +22,16 @@ function maskPatientName(title, fullName) {
 
 /**
  * Resolve client-facing sample status:
- * 'Received' -> 'In Testing' -> 'Report Ready'
+ * 'Received' -> 'In Testing' -> 'Report Ready' | 'Cancelled'
  */
 function resolveClientStatus(visitStatus, reportStatus, printedAt) {
+  if (reportStatus === 'cancelled' || visitStatus === 'cancelled') {
+    return 'Cancelled';
+  }
   if (reportStatus === 'final' || printedAt) {
     return 'Report Ready';
   }
-  if (visitStatus === 'in-testing') {
+  if (visitStatus === 'in-testing' || visitStatus === 'in_testing') {
     return 'In Testing';
   }
   return 'Received';
@@ -67,12 +70,14 @@ async function getClientSamples(req, res, next) {
         v.collected_at,
         v.created_at,
         v.status as visit_status,
+        v.client_facing_reason as visit_client_facing_reason,
         p.title as patient_title,
         p.full_name as patient_full_name,
         p.age_years,
         p.gender,
         r.status as report_status,
-        r.printed_at as report_printed_at
+        r.printed_at as report_printed_at,
+        r.client_facing_reason as report_client_facing_reason
       FROM visits v
       JOIN patients p ON p.id = v.patient_id
       LEFT JOIN reports r ON r.visit_id = v.id
@@ -109,12 +114,14 @@ async function getClientSamples(req, res, next) {
             collected_at: v.collected_at,
             created_at: v.created_at,
             visit_status: v.status,
+            visit_client_facing_reason: v.client_facing_reason,
             patient_title: patient.title,
             patient_full_name: patient.full_name,
             age_years: patient.age_years,
             gender: patient.gender,
             report_status: report.status,
             report_printed_at: report.printed_at,
+            report_client_facing_reason: report.client_facing_reason,
           };
         });
       } catch (_) {}
@@ -128,19 +135,25 @@ async function getClientSamples(req, res, next) {
     let countToday = 0;
     let countWeek = 0;
     let countMonth = 0;
-    const totalCount = dbRows.length;
+    let activeTotalCount = 0;
 
     const mappedSamples = dbRows.map((row) => {
-      const createdAtMs = new Date(row.created_at || row.collected_at || now).getTime();
-      if (createdAtMs >= startOfToday) countToday++;
-      if (createdAtMs >= sevenDaysAgo) countWeek++;
-      if (createdAtMs >= startOfMonth) countMonth++;
-
       const trackingStatus = resolveClientStatus(
         row.visit_status,
         row.report_status,
         row.report_printed_at
       );
+
+      // Exclude cancelled samples from KPI throughput counts
+      if (trackingStatus !== 'Cancelled') {
+        activeTotalCount++;
+        const createdAtMs = new Date(row.created_at || row.collected_at || now).getTime();
+        if (createdAtMs >= startOfToday) countToday++;
+        if (createdAtMs >= sevenDaysAgo) countWeek++;
+        if (createdAtMs >= startOfMonth) countMonth++;
+      }
+
+      const clientReason = row.report_client_facing_reason || row.visit_client_facing_reason || (trackingStatus === 'Cancelled' ? 'Collection cancelled' : null);
 
       return {
         visit_code: row.visit_code,
@@ -153,6 +166,7 @@ async function getClientSamples(req, res, next) {
         sample_type: row.sample_type || 'Diagnostic Sample',
         collected_at: row.collected_at || row.created_at,
         status: trackingStatus,
+        client_facing_reason: clientReason,
       };
     });
 
@@ -179,7 +193,7 @@ async function getClientSamples(req, res, next) {
         today: countToday,
         this_week: countWeek,
         this_month: countMonth,
-        total: totalCount,
+        total: activeTotalCount,
       },
       count: paginated.length,
       total_records: filtered.length,

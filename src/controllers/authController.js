@@ -288,6 +288,13 @@ async function listUsers(req, res, next) {
  */
 async function updateUser(req, res, next) {
   try {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden: Administrator privileges required',
+      });
+    }
+
     const { id } = req.params;
     const { role, is_active, client_name, password, assigned_workstation } = req.body;
 

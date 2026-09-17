@@ -71,7 +71,6 @@ async function calculateBillForVisit(doctorId, tests = [], client = null) {
     if (doctorId) {
       if (client && client.query) {
         try {
-          await client.query('SAVEPOINT billing_doctor_rate');
           const docRateRes = await client.query(
             'SELECT rate FROM doctor_test_rates WHERE doctor_id = $1 AND test_name = $2',
             [doctorId, testName]
@@ -80,10 +79,19 @@ async function calculateBillForVisit(doctorId, tests = [], client = null) {
             rate = parseFloat(docRateRes.rows[0].rate);
             rate_source = 'doctor';
           }
-          await client.query('RELEASE SAVEPOINT billing_doctor_rate');
-        } catch (_) {
-          try { await client.query('ROLLBACK TO SAVEPOINT billing_doctor_rate'); } catch (_2) {}
-        }
+        } catch (_) {}
+      } else {
+        try {
+          const { query } = require('../db');
+          const docRateRes = await query(
+            'SELECT rate FROM doctor_test_rates WHERE doctor_id = $1 AND test_name = $2',
+            [doctorId, testName]
+          );
+          if (docRateRes && docRateRes.rows && docRateRes.rows.length > 0) {
+            rate = parseFloat(docRateRes.rows[0].rate);
+            rate_source = 'doctor';
+          }
+        } catch (_) {}
       }
       if (rate === null && doctorRatesStore[doctorId] && doctorRatesStore[doctorId][testName] !== undefined) {
         rate = parseFloat(doctorRatesStore[doctorId][testName]);
@@ -95,7 +103,6 @@ async function calculateBillForVisit(doctorId, tests = [], client = null) {
     if (rate === null) {
       if (client && client.query) {
         try {
-          await client.query('SAVEPOINT billing_default_rate');
           const defRateRes = await client.query(
             'SELECT rate FROM default_test_rates WHERE test_name = $1',
             [testName]
@@ -104,10 +111,19 @@ async function calculateBillForVisit(doctorId, tests = [], client = null) {
             rate = parseFloat(defRateRes.rows[0].rate);
             rate_source = 'default';
           }
-          await client.query('RELEASE SAVEPOINT billing_default_rate');
-        } catch (_) {
-          try { await client.query('ROLLBACK TO SAVEPOINT billing_default_rate'); } catch (_2) {}
-        }
+        } catch (_) {}
+      } else {
+        try {
+          const { query } = require('../db');
+          const defRateRes = await query(
+            'SELECT rate FROM default_test_rates WHERE test_name = $1',
+            [testName]
+          );
+          if (defRateRes && defRateRes.rows && defRateRes.rows.length > 0) {
+            rate = parseFloat(defRateRes.rows[0].rate);
+            rate_source = 'default';
+          }
+        } catch (_) {}
       }
       if (rate === null && defaultRatesStore[testName] !== undefined) {
         rate = parseFloat(defaultRatesStore[testName]);
@@ -646,6 +662,13 @@ async function listReports(req, res, next) {
   }
 }
 
+const CLIENT_FACING_REASONS = [
+  'Specimen unsuitable for testing',
+  'Insufficient sample volume',
+  'Collection cancelled',
+  'Other — see lab',
+];
+
 /**
  * Cancel a Report / Sample (Soft Delete)
  * POST /api/reports/:id/cancel
@@ -653,7 +676,7 @@ async function listReports(req, res, next) {
 async function cancelReport(req, res, next) {
   try {
     const { id } = req.params;
-    const { reason } = req.body;
+    const { reason, client_facing_reason } = req.body;
 
     if (!reason || !reason.trim()) {
       return res.status(400).json({
@@ -662,8 +685,8 @@ async function cancelReport(req, res, next) {
       });
     }
 
-    // Only staff roles can cancel
-    const allowedRoles = ['front-desk', 'lab-tech', 'admin'];
+    // Role permissions: staff and doctor roles can cancel
+    const allowedRoles = ['front-desk', 'lab-tech', 'doctor', 'admin'];
     if (!allowedRoles.includes(req.user?.role)) {
       return res.status(403).json({
         success: false,
@@ -671,8 +694,8 @@ async function cancelReport(req, res, next) {
       });
     }
 
-    // 1. Fetch report to check print status
-    const reportRes = await query('SELECT * FROM reports WHERE id = $1 OR report_code = $1', [id]);
+    // 1. Fetch report to check print status and associated visit
+    const reportRes = await query('SELECT * FROM reports WHERE id::text = $1 OR report_code = $1', [id]);
     let report = reportRes.rows[0];
 
     // Fallback store lookup if needed
@@ -696,17 +719,56 @@ async function cancelReport(req, res, next) {
       });
     }
 
-    // 3. Update report status to 'cancelled'
+    // Check if visit is linked to a referring clinic
+    const visitRes = await query('SELECT * FROM visits WHERE id = $1', [report.visit_id]);
+    let visit = visitRes.rows[0];
+    if (!visit && fallbackStore?.visits) {
+      visit = fallbackStore.visits.find((v) => v.id === report.visit_id);
+    }
+
+    const hasClientPortal = !!(visit && (visit.client_name || visit.client_code));
+    if (hasClientPortal) {
+      if (!client_facing_reason || !CLIENT_FACING_REASONS.includes(client_facing_reason.trim())) {
+        return res.status(400).json({
+          success: false,
+          error: `Client-facing reason is required for samples linked to a referring clinic. Must be one of: ${CLIENT_FACING_REASONS.join(', ')}`,
+        });
+      }
+    } else if (client_facing_reason && !CLIENT_FACING_REASONS.includes(client_facing_reason.trim())) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid client-facing reason. Must be one of: ${CLIENT_FACING_REASONS.join(', ')}`,
+      });
+    }
+
+    const clientReason = client_facing_reason ? client_facing_reason.trim() : null;
     const nowIso = new Date().toISOString();
+
+    // 3. Update report status to 'cancelled', zero out total_amount, preserve billing_breakdown
     await query(
       `UPDATE reports
        SET status = 'cancelled',
            cancellation_reason = $1,
+           client_facing_reason = $2,
+           total_amount = 0.00,
            cancelled_at = NOW(),
-           cancelled_by = $2,
+           cancelled_by = $3,
            updated_at = NOW()
-       WHERE id = $3`,
-      [reason.trim(), req.user.id, report.id]
+       WHERE id = $4`,
+      [reason.trim(), clientReason, req.user.id, report.id]
+    );
+
+    // Update visit status to 'cancelled'
+    await query(
+      `UPDATE visits
+       SET status = 'cancelled',
+           cancellation_reason = $1,
+           client_facing_reason = $2,
+           cancelled_at = NOW(),
+           cancelled_by = $3,
+           updated_at = NOW()
+       WHERE id = $4`,
+      [reason.trim(), clientReason, req.user.id, report.visit_id]
     );
 
     // Also cascade status to associated test results for this visit
@@ -714,11 +776,12 @@ async function cancelReport(req, res, next) {
       `UPDATE test_results
        SET status = 'cancelled',
            cancellation_reason = $1,
+           client_facing_reason = $2,
            cancelled_at = NOW(),
-           cancelled_by = $2,
+           cancelled_by = $3,
            updated_at = NOW()
-       WHERE visit_id = $3`,
-      [reason.trim(), req.user.id, report.visit_id]
+       WHERE visit_id = $4`,
+      [reason.trim(), clientReason, req.user.id, report.visit_id]
     );
 
     // Update in fallback store
@@ -727,8 +790,20 @@ async function cancelReport(req, res, next) {
       if (storeRep) {
         storeRep.status = 'cancelled';
         storeRep.cancellation_reason = reason.trim();
+        storeRep.client_facing_reason = clientReason;
+        storeRep.total_amount = 0.00;
         storeRep.cancelled_at = nowIso;
         storeRep.cancelled_by = req.user.id;
+      }
+    }
+    if (fallbackStore?.visits) {
+      const storeVis = fallbackStore.visits.find((v) => v.id === report.visit_id);
+      if (storeVis) {
+        storeVis.status = 'cancelled';
+        storeVis.cancellation_reason = reason.trim();
+        storeVis.client_facing_reason = clientReason;
+        storeVis.cancelled_at = nowIso;
+        storeVis.cancelled_by = req.user.id;
       }
     }
     if (fallbackStore?.test_results) {
@@ -737,6 +812,7 @@ async function cancelReport(req, res, next) {
         .forEach((t) => {
           t.status = 'cancelled';
           t.cancellation_reason = reason.trim();
+          t.client_facing_reason = clientReason;
           t.cancelled_at = nowIso;
           t.cancelled_by = req.user.id;
         });
@@ -744,6 +820,8 @@ async function cancelReport(req, res, next) {
 
     report.status = 'cancelled';
     report.cancellation_reason = reason.trim();
+    report.client_facing_reason = clientReason;
+    report.total_amount = 0.00;
     report.cancelled_at = nowIso;
     report.cancelled_by = req.user.id;
 
@@ -758,6 +836,7 @@ async function cancelReport(req, res, next) {
         report_code: report.report_code,
         visit_id: report.visit_id,
         reason: reason.trim(),
+        client_facing_reason: clientReason,
         cancelled_by: req.user.username || req.user.id,
         role: req.user.role,
       },
@@ -800,7 +879,7 @@ async function doctorApproval(req, res, next) {
     }
 
     // 1. Fetch report
-    const reportRes = await query('SELECT * FROM reports WHERE id = $1 OR report_code = $1', [id]);
+    const reportRes = await query('SELECT * FROM reports WHERE id::text = $1 OR report_code = $1', [id]);
     let report = reportRes.rows[0];
 
     const fallbackStore = require('../db/fallbackStore');

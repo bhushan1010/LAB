@@ -166,6 +166,8 @@ export default function LoginPage() {
           <div className="grid grid-cols-2 gap-2 text-xs">
             <button
               type="button"
+              data-testid="demo-admin"
+              aria-label="Admin"
               onClick={() => fillQuickLogin('admin', 'AdminPassword123!')}
               className="flex items-center gap-2.5 p-2 rounded-lg bg-[#0f172a] hover:bg-[#131b2e] border border-[#334155] hover:border-purple-500/50 transition text-left cursor-pointer group"
             >
@@ -178,6 +180,8 @@ export default function LoginPage() {
 
             <button
               type="button"
+              data-testid="demo-labtech"
+              aria-label="Lab Tech"
               onClick={() => fillQuickLogin('labtech1', 'TechPassword123!')}
               className="flex items-center gap-2.5 p-2 rounded-lg bg-[#0f172a] hover:bg-[#131b2e] border border-[#334155] hover:border-sky-500/50 transition text-left cursor-pointer group"
             >
@@ -190,6 +194,8 @@ export default function LoginPage() {
 
             <button
               type="button"
+              data-testid="demo-frontdesk"
+              aria-label="Front Desk"
               onClick={() => fillQuickLogin('reception1', 'DeskPassword123!')}
               className="flex items-center gap-2.5 p-2 rounded-lg bg-[#0f172a] hover:bg-[#131b2e] border border-[#334155] hover:border-amber-500/50 transition text-left cursor-pointer group"
             >
@@ -202,6 +208,8 @@ export default function LoginPage() {
 
             <button
               type="button"
+              data-testid="demo-client"
+              aria-label="Referring Clinic"
               onClick={() => fillQuickLogin('clinic_sample', 'client123')}
               className="flex items-center gap-2.5 p-2 rounded-lg bg-[#0f172a] hover:bg-[#131b2e] border border-[#334155] hover:border-emerald-500/50 transition text-left cursor-pointer group"
             >
@@ -214,6 +222,8 @@ export default function LoginPage() {
 
             <button
               type="button"
+              data-testid="demo-doctor"
+              aria-label="Doctor"
               onClick={() => fillQuickLogin('doctor1', 'DoctorPassword123!')}
               className="flex items-center gap-2.5 p-2 rounded-lg bg-[#0f172a] hover:bg-[#131b2e] border border-[#334155] hover:border-teal-500/50 transition text-left cursor-pointer group col-span-2"
             >

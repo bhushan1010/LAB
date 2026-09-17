@@ -273,9 +273,10 @@ export default function UserManagementPage() {
                 <td className="py-3 px-4 text-right space-x-2 whitespace-nowrap">
                   <button
                     type="button"
+                    data-testid={`reset-password-${u.username}`}
                     onClick={() => openResetModal(u)}
                     title="Reset Password"
-                    className="px-2.5 py-1 rounded text-[10px] font-semibold transition border border-amber-800/80 text-amber-300 hover:bg-amber-950/60 inline-flex items-center gap-1"
+                    className="px-2.5 py-1 rounded text-[10px] font-semibold transition border border-amber-800/80 text-amber-300 hover:bg-amber-950/60 inline-flex items-center gap-1 cursor-pointer"
                   >
                     <Key className="w-3 h-3 text-amber-400" />
                     Reset Password
@@ -477,6 +478,12 @@ export default function UserManagementPage() {
               </p>
             </div>
 
+            {error && (
+              <div className="p-2.5 bg-rose-950/80 border border-rose-800 text-rose-300 rounded-lg text-xs flex items-center gap-2">
+                <span>{error}</span>
+              </div>
+            )}
+
             {resetModal.successData ? (
               <div className="space-y-4 text-xs">
                 <div className="p-3.5 bg-emerald-950/60 border border-emerald-800 text-emerald-300 rounded-xl space-y-2">
@@ -488,11 +495,12 @@ export default function UserManagementPage() {
                   </p>
 
                   <div className="flex items-center justify-between bg-[#0f172a] border border-emerald-800/80 rounded-lg p-2.5 mt-2">
-                    <span className="font-mono text-white text-sm font-bold tracking-wider">
+                    <span data-testid="temp-password-display" className="font-mono text-white text-sm font-bold tracking-wider">
                       {resetModal.successData.temporaryPassword}
                     </span>
                     <button
                       type="button"
+                      data-testid="copy-password-btn"
                       onClick={() => {
                         navigator.clipboard?.writeText(resetModal.successData.temporaryPassword);
                         setCopied(true);
@@ -512,6 +520,7 @@ export default function UserManagementPage() {
                 <div className="flex justify-end pt-2">
                   <button
                     type="button"
+                    data-testid="reset-done-btn"
                     onClick={() => {
                       setResetModal({
                         open: false,
@@ -535,6 +544,7 @@ export default function UserManagementPage() {
                   <div className="relative">
                     <input
                       type="password"
+                      data-testid="reset-new-password"
                       required
                       placeholder="Minimum 6 characters"
                       value={resetModal.newPassword}
@@ -549,6 +559,7 @@ export default function UserManagementPage() {
                   <div className="relative">
                     <input
                       type="password"
+                      data-testid="reset-confirm-password"
                       required
                       placeholder="Re-enter password"
                       value={resetModal.confirmPassword}
@@ -576,6 +587,7 @@ export default function UserManagementPage() {
                   </button>
                   <button
                     type="submit"
+                    data-testid="reset-submit-btn"
                     disabled={resetModal.submitting}
                     className="px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white rounded-lg font-bold shadow flex items-center gap-1.5 cursor-pointer"
                   >

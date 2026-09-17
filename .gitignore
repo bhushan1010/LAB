@@ -1,4 +1,4 @@
-﻿# Environment variables
+# Environment variables
 .env
 .env.local
 .env.*.local
@@ -18,3 +18,19 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 .neon
+/test
+/test
+/test
+
+# Sensitive Reference Documents & Extracted Artifacts
+*POP*SINGH*
+*POP SINGH*
+extracted_*_HiQPdf_*
+signature.png
+qr_code.png
+qr_code_rgb.png
+qr_bordered.png
+*.jp2
+/graphify-out
+/test
+/test

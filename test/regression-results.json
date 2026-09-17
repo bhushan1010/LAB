@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-11T18:47:52.551Z",
+  "timestamp": "2026-09-13T17:57:15.526Z",
   "environment": {
     "frontendUrl": "http://localhost:3000",
     "backendUrl": "http://localhost:5000",
@@ -7,8 +7,8 @@
   },
   "summary": {
     "total": 8,
-    "passed": 4,
-    "failed": 4,
+    "passed": 8,
+    "failed": 0,
     "blocked": 0
   },
   "steps": {
@@ -16,29 +16,29 @@
       "name": "Cross-Role End-to-End Workflow",
       "status": "PASS",
       "details": {
-        "patientUhid": "WALK-R226-6303",
-        "visitCode": "MIND212183",
-        "reportCode": "REP-202609-9157",
-        "qrToken": "330c8ac1757335a0c7fd48430c35ca05b1ff8f40527de6cac56110d05a4074df",
+        "patientUhid": "WALK-R526-8918",
+        "visitCode": "MIND847637",
+        "reportCode": "REP-202609-6838",
+        "qrToken": "6b66e0a69e6db6cf3955b7ef445615e2b23b2691370a121fc2c625e4de23703b",
         "adminFoundCount": 1
       }
     },
     "step2": {
       "name": "Print Queue Role Scoping (Server-Side)",
-      "status": "FAIL",
+      "status": "PASS",
       "details": {
-        "frontDeskCount": 0,
-        "adminCount": 3,
+        "frontDeskCount": 2,
+        "adminCount": 9,
         "serverScopingEnforced": true
       }
     },
     "step3": {
       "name": "Role-Scoped Dashboard-to-Action Flows",
-      "status": "FAIL",
+      "status": "PASS",
       "details": {
-        "hasQuickIntake": false,
+        "hasQuickIntake": true,
         "hasTestingQueue": true,
-        "hasAdminFeed": false
+        "hasAdminFeed": true
       }
     },
     "step4": {
@@ -72,21 +72,27 @@
     },
     "step7": {
       "name": "Offline Multi-Report Batch Sync & Idempotence",
-      "status": "FAIL",
+      "status": "PASS",
       "details": {
         "batchSize": 2,
-        "firstPushStatus": 400,
-        "retryPushStatus": 400
+        "firstPushStatus": 200,
+        "retryPushStatus": 200,
+        "syncedCounts": {
+          "patients": 0,
+          "visits": 0,
+          "test_results": 0,
+          "reports": 0
+        }
       }
     },
     "step8": {
       "name": "Client-Side Direct Hash URL Tampering Guarding",
-      "status": "FAIL",
+      "status": "PASS",
       "details": {
         "hashAfterUsersAttempt": "#/dashboard",
         "hashAfterAuditAttempt": "#/dashboard",
-        "hashAfterStudioAttempt": "#/studio",
-        "redirectedToDashboard": false
+        "hashAfterStudioAttempt": "#/dashboard",
+        "redirectedToDashboard": true
       }
     }
   },

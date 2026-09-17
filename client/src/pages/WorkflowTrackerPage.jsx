@@ -32,13 +32,15 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
   const [search, setSearch] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [actionMessage, setActionMessage] = useState(null);
+  const [showCancelled, setShowCancelled] = useState(false);
 
-  // Approval Modal state
+  // Approval / Review / Cancellation Modal state
   const [approvalModal, setApprovalModal] = useState({
     open: false,
     item: null, // { visit, report }
-    action: 'approved', // 'approved' | 'rejected'
+    action: 'approved', // 'approved' | 'rejected' | 'cancelled'
     note: '',
+    clientFacingReason: 'Specimen unsuitable for testing',
   });
 
   // Load workflow items (visits query already left-joins report details)
@@ -74,7 +76,12 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
         approved_at: v.approved_at,
         approval_note: v.approval_note,
         printed_at: v.printed_at,
+        cancellation_reason: v.cancellation_reason,
+        client_facing_reason: v.client_facing_reason,
       } : null;
+
+      const isCancelled = v.status === 'cancelled' || report?.status === 'cancelled';
+      const cancellationReason = v.client_facing_reason || v.cancellation_reason || (report?.status === 'cancelled' ? 'Sample cancelled' : null);
 
       // Determine 4-Stage Pipeline Classification:
       // Stage 1: Registered (No report yet, status is registered)
@@ -98,7 +105,7 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
           stage = 'approval';
         }
       } else {
-        if (v.status === 'in_testing') {
+        if (v.status === 'in-testing' || v.status === 'in_testing') {
           stage = 'testing';
         } else {
           stage = 'registered';
@@ -110,6 +117,8 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
         report,
         stage,
         doneType,
+        isCancelled,
+        cancellationReason,
       };
     });
   }, [visits, reports]);
@@ -130,43 +139,67 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
     });
   }, [workflowItems, search]);
 
-  // Group items by stage
-  const columns = useMemo(() => {
-    const registered = filteredItems.filter((i) => i.stage === 'registered');
-    const testing = filteredItems.filter((i) => i.stage === 'testing');
-    const approval = filteredItems.filter((i) => i.stage === 'approval');
-    const done = filteredItems.filter((i) => i.stage === 'done');
-
-    return {
-      registered,
-      testing,
-      approval,
-      done,
-    };
+  const cancelledCount = useMemo(() => {
+    return filteredItems.filter((i) => i.isCancelled).length;
   }, [filteredItems]);
 
-  // Handle Doctor Approval / Rejection Action
+  // Group items by stage (excluding cancelled by default, unless showCancelled toggle is on)
+  const columns = useMemo(() => {
+    const getItems = (stageName) => {
+      return filteredItems.filter((i) => {
+        if (i.stage !== stageName) return false;
+        if (i.isCancelled) return showCancelled;
+        return true;
+      });
+    };
+
+    return {
+      registered: getItems('registered'),
+      testing: getItems('testing'),
+      approval: getItems('approval'),
+      done: getItems('done'),
+    };
+  }, [filteredItems, showCancelled]);
+
+  // Handle Doctor Approval / Rejection / Cancellation Action
   const handleDoctorAction = async (e) => {
     e.preventDefault();
     if (!approvalModal.item?.report?.id) return;
 
     setSubmitting(true);
     try {
-      const res = await api.post(`/reports/${approvalModal.item.report.id}/approve`, {
-        status: approvalModal.action,
-        note: approvalModal.note,
-      });
-
-      if (res.data.success) {
-        setActionMessage({
-          type: approvalModal.action === 'approved' ? 'success' : 'warning',
-          text: approvalModal.action === 'approved'
-            ? `Report #${approvalModal.item.report.report_code} clinically approved!`
-            : `Report #${approvalModal.item.report.report_code} rejected back to testing for revisions.`,
+      if (approvalModal.action === 'cancelled') {
+        const res = await api.post(`/reports/${approvalModal.item.report.id}/cancel`, {
+          reason: approvalModal.note,
+          client_facing_reason: approvalModal.clientFacingReason,
         });
-        setApprovalModal({ open: false, item: null, action: 'approved', note: '' });
-        loadWorkflowData();
-        setTimeout(() => setActionMessage(null), 4000);
+
+        if (res.data.success) {
+          setActionMessage({
+            type: 'warning',
+            text: `Report #${approvalModal.item.report.report_code} sample cancelled and voided from pipeline.`,
+          });
+          setApprovalModal({ open: false, item: null, action: 'approved', note: '', clientFacingReason: 'Specimen unsuitable for testing' });
+          loadWorkflowData();
+          setTimeout(() => setActionMessage(null), 4000);
+        }
+      } else {
+        const res = await api.post(`/reports/${approvalModal.item.report.id}/approve`, {
+          status: approvalModal.action,
+          note: approvalModal.note,
+        });
+
+        if (res.data.success) {
+          setActionMessage({
+            type: approvalModal.action === 'approved' ? 'success' : 'warning',
+            text: approvalModal.action === 'approved'
+              ? `Report #${approvalModal.item.report.report_code} clinically approved!`
+              : `Report #${approvalModal.item.report.report_code} rejected back to testing for revisions.`,
+          });
+          setApprovalModal({ open: false, item: null, action: 'approved', note: '', clientFacingReason: 'Specimen unsuitable for testing' });
+          loadWorkflowData();
+          setTimeout(() => setActionMessage(null), 4000);
+        }
       }
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to submit clinical review action');
@@ -174,6 +207,34 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
       setSubmitting(false);
     }
   };
+
+  const renderCancelledCard = (visit, cancellationReason) => (
+    <div
+      key={visit.id}
+      className="p-3 bg-[#0b1326]/90 border border-dashed border-rose-900/60 rounded-xl space-y-2 opacity-80 shadow-xs transition"
+    >
+      <div className="flex items-start justify-between gap-1">
+        <div>
+          <div className="font-medium text-slate-400 text-xs line-through leading-snug">
+            {visit.patient_name}
+          </div>
+          <div className="text-[10px] font-mono text-slate-500 mt-0.5">
+            {visit.patient_uhid} • {visit.visit_code}
+          </div>
+        </div>
+        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-rose-950/80 text-rose-300 border border-rose-800 uppercase font-bold tracking-wider">
+          CANCELLED
+        </span>
+      </div>
+      <div className="p-1.5 bg-rose-950/30 border border-rose-900/40 rounded text-[10px] text-rose-300 font-mono">
+        Reason: {cancellationReason || 'Sample cancelled'}
+      </div>
+      <div className="text-[9px] text-slate-500 font-mono flex items-center justify-between pt-1 border-t border-[#334155]/40">
+        <span>Voided from pipeline</span>
+        <span>{visit.client_name ? `Clinic: ${visit.client_name}` : 'Internal'}</span>
+      </div>
+    </div>
+  );
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -208,6 +269,23 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
               className="w-64 h-8.5 bg-[#0f172a] border border-[#334155] rounded-lg pl-9 pr-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-500 font-sans"
             />
           </div>
+
+          <label className="flex items-center gap-1.5 h-8.5 px-2.5 bg-[#0f172a] border border-[#334155] hover:border-slate-500 rounded-lg text-xs text-slate-300 cursor-pointer select-none transition">
+            <input
+              type="checkbox"
+              checked={showCancelled}
+              onChange={(e) => setShowCancelled(e.target.checked)}
+              className="w-3.5 h-3.5 rounded border-[#334155] text-rose-500 focus:ring-0 focus:ring-offset-0 bg-slate-900 cursor-pointer"
+            />
+            <span className="font-mono text-[11px] flex items-center gap-1">
+              Show Cancelled
+              {cancelledCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-rose-950 text-rose-300 border border-rose-800 font-bold">
+                  {cancelledCount}
+                </span>
+              )}
+            </span>
+          </label>
 
           <button
             type="button"
@@ -262,61 +340,64 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
                 No samples waiting in intake
               </div>
             ) : (
-              columns.registered.map(({ visit }) => (
-                <div
-                  key={visit.id}
-                  className="p-3 bg-[#1e293b] border border-[#334155] hover:border-blue-500/50 rounded-xl transition shadow-xs space-y-2.5 group"
-                >
-                  <div className="flex items-start justify-between gap-1">
-                    <div>
-                      <div className="font-semibold text-slate-100 text-xs leading-snug">
-                        {visit.patient_name}
+              columns.registered.map(({ visit, isCancelled, cancellationReason }) => {
+                if (isCancelled) return renderCancelledCard(visit, cancellationReason);
+                return (
+                  <div
+                    key={visit.id}
+                    className="p-3 bg-[#1e293b] border border-[#334155] hover:border-blue-500/50 rounded-xl transition shadow-xs space-y-2.5 group"
+                  >
+                    <div className="flex items-start justify-between gap-1">
+                      <div>
+                        <div className="font-semibold text-slate-100 text-xs leading-snug">
+                          {visit.patient_name}
+                        </div>
+                        <div className="text-[10px] font-mono text-slate-400 mt-0.5">
+                          {visit.patient_uhid} • {visit.visit_code}
+                        </div>
                       </div>
-                      <div className="text-[10px] font-mono text-slate-400 mt-0.5">
-                        {visit.patient_uhid} • {visit.visit_code}
-                      </div>
-                    </div>
-                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800">
-                      INTAKE
-                    </span>
-                  </div>
-
-                  <div className="text-[11px] text-slate-300 space-y-1">
-                    <div className="flex items-center justify-between text-[10px] text-slate-400">
-                      <span>Sample Type:</span>
-                      <span className="text-slate-200 font-mono font-medium truncate max-w-[140px]">
-                        {visit.sample_type || 'SERUM'}
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800">
+                        INTAKE
                       </span>
                     </div>
-                    {visit.ref_doctor && (
-                      <div className="text-[10px] text-slate-400 truncate">
-                        Ref: <span className="text-slate-300">{visit.ref_doctor}</span>
-                      </div>
-                    )}
-                  </div>
 
-                  <div className="pt-2 border-t border-[#334155]/60 flex items-center justify-between">
-                    <span className="text-[10px] text-slate-500 font-mono">
-                      {visit.collected_at
-                        ? (!isNaN(new Date(visit.collected_at).getTime())
-                            ? new Date(visit.collected_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                            : visit.collected_at)
-                        : 'Intake'}
-                    </span>
-                    {(role === 'lab-tech' || role === 'admin') && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (onNavigate) onNavigate('studio');
-                        }}
-                        className="text-[10px] font-semibold text-sky-400 hover:text-sky-300 inline-flex items-center gap-1 cursor-pointer"
-                      >
-                        Enter Tests <ChevronRight className="w-3 h-3" />
-                      </button>
-                    )}
+                    <div className="text-[11px] text-slate-300 space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-slate-400">
+                        <span>Sample Type:</span>
+                        <span className="text-slate-200 font-mono font-medium truncate max-w-[140px]">
+                          {visit.sample_type || 'SERUM'}
+                        </span>
+                      </div>
+                      {visit.ref_doctor && (
+                        <div className="text-[10px] text-slate-400 truncate">
+                          Ref: <span className="text-slate-300">{visit.ref_doctor}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-[#334155]/60 flex items-center justify-between">
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        {visit.collected_at
+                          ? (!isNaN(new Date(visit.collected_at).getTime())
+                              ? new Date(visit.collected_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                              : visit.collected_at)
+                          : 'Intake'}
+                      </span>
+                      {(role === 'lab-tech' || role === 'admin') && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (onNavigate) onNavigate('studio');
+                          }}
+                          className="text-[10px] font-semibold text-sky-400 hover:text-sky-300 inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          Enter Tests <ChevronRight className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -341,7 +422,8 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
                 No samples under test analysis
               </div>
             ) : (
-              columns.testing.map(({ visit, report }) => {
+              columns.testing.map(({ visit, report, isCancelled, cancellationReason }) => {
+                if (isCancelled) return renderCancelledCard(visit, cancellationReason);
                 const isRejected = report?.doctor_approval_status === 'rejected';
                 return (
                   <div
@@ -442,88 +524,111 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
                 No reports waiting for sign-off
               </div>
             ) : (
-              columns.approval.map(({ visit, report }) => (
-                <div
-                  key={visit.id}
-                  className="p-3 bg-[#1e293b] border border-teal-800/60 hover:border-teal-500 rounded-xl transition shadow-xs space-y-2.5"
-                >
-                  <div className="flex items-start justify-between gap-1">
-                    <div>
-                      <div className="font-semibold text-slate-100 text-xs leading-snug">
-                        {visit.patient_name}
+              columns.approval.map(({ visit, report, isCancelled, cancellationReason }) => {
+                if (isCancelled) return renderCancelledCard(visit, cancellationReason);
+                return (
+                  <div
+                    key={visit.id}
+                    className="p-3 bg-[#1e293b] border border-teal-800/60 hover:border-teal-500 rounded-xl transition shadow-xs space-y-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-1">
+                      <div>
+                        <div className="font-semibold text-slate-100 text-xs leading-snug">
+                          {visit.patient_name}
+                        </div>
+                        <div className="text-[10px] font-mono text-teal-400 mt-0.5">
+                          {report?.report_code || visit.visit_code}
+                        </div>
                       </div>
-                      <div className="text-[10px] font-mono text-teal-400 mt-0.5">
-                        {report?.report_code || visit.visit_code}
-                      </div>
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-teal-950 text-teal-300 border border-teal-700 font-bold">
+                        AWAITING SIGN-OFF
+                      </span>
                     </div>
-                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-teal-950 text-teal-300 border border-teal-700 font-bold">
-                      AWAITING SIGN-OFF
-                    </span>
-                  </div>
 
-                  <div className="text-[11px] text-slate-300 space-y-1">
-                    <div className="text-[10px] text-slate-400 truncate">
-                      Doctor: <span className="text-slate-200 font-medium">{visit.ref_doctor || 'Hospital Staff'}</span>
+                    <div className="text-[11px] text-slate-300 space-y-1">
+                      <div className="text-[10px] text-slate-400 truncate">
+                        Doctor: <span className="text-slate-200 font-medium">{visit.ref_doctor || 'Hospital Staff'}</span>
+                      </div>
+                      {report?.interpretation && (
+                        <div className="text-[10px] text-slate-400 italic line-clamp-2 bg-[#0f172a] p-1.5 rounded border border-[#334155]/60">
+                          "{report.interpretation}"
+                        </div>
+                      )}
                     </div>
-                    {report?.interpretation && (
-                      <div className="text-[10px] text-slate-400 italic line-clamp-2 bg-[#0f172a] p-1.5 rounded border border-[#334155]/60">
-                        "{report.interpretation}"
-                      </div>
-                    )}
-                  </div>
 
-                  {/* Actions depending on Role */}
-                  <div className="pt-2 border-t border-[#334155]/60 space-y-2">
-                    {(role === 'doctor' || role === 'admin') ? (
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setApprovalModal({
-                              open: true,
-                              item: { visit, report },
-                              action: 'approved',
-                              note: '',
-                            });
-                          }}
-                          className="px-2 py-1.5 bg-teal-600 hover:bg-teal-500 text-slate-950 font-bold text-[10px] rounded-lg transition flex items-center justify-center gap-1 cursor-pointer shadow-xs"
-                        >
-                          <CheckCircle2 className="w-3 h-3" /> Approve
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setApprovalModal({
-                              open: true,
-                              item: { visit, report },
-                              action: 'rejected',
-                              note: '',
-                            });
-                          }}
-                          className="px-2 py-1.5 bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800 text-[10px] font-bold rounded-lg transition flex items-center justify-center gap-1 cursor-pointer"
-                        >
-                          <XCircle className="w-3 h-3" /> Reject
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between text-[10px]">
-                        <span className="text-slate-400 font-mono">Pending Pathologist</span>
-                        {report && (
+                    {/* Actions depending on Role */}
+                    <div className="pt-2 border-t border-[#334155]/60 space-y-2">
+                      {(role === 'doctor' || role === 'admin') ? (
+                        <div className="grid grid-cols-3 gap-1.5">
                           <button
                             type="button"
                             onClick={() => {
-                              if (onNavigate) onNavigate('print-queue');
+                              setApprovalModal({
+                                open: true,
+                                item: { visit, report },
+                                action: 'approved',
+                                note: '',
+                                clientFacingReason: 'Specimen unsuitable for testing',
+                              });
                             }}
-                            className="text-sky-400 hover:text-sky-300 inline-flex items-center gap-1 font-semibold cursor-pointer"
+                            className="px-1.5 py-1.5 bg-teal-600 hover:bg-teal-500 text-slate-950 font-bold text-[10px] rounded-lg transition flex items-center justify-center gap-1 cursor-pointer shadow-xs"
+                            title="Clinically approve report"
                           >
-                            Queue <ChevronRight className="w-3 h-3" />
+                            <CheckCircle2 className="w-3 h-3" /> Approve
                           </button>
-                        )}
-                      </div>
-                    )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setApprovalModal({
+                                open: true,
+                                item: { visit, report },
+                                action: 'rejected',
+                                note: '',
+                                clientFacingReason: 'Specimen unsuitable for testing',
+                              });
+                            }}
+                            className="px-1.5 py-1.5 bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-800 text-[10px] font-bold rounded-lg transition flex items-center justify-center gap-1 cursor-pointer"
+                            title="Reject back to testing for revisions"
+                          >
+                            <AlertTriangle className="w-3 h-3" /> Reject
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setApprovalModal({
+                                open: true,
+                                item: { visit, report },
+                                action: 'cancelled',
+                                note: '',
+                                clientFacingReason: 'Specimen unsuitable for testing',
+                              });
+                            }}
+                            className="px-1.5 py-1.5 bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-800 text-[10px] font-bold rounded-lg transition flex items-center justify-center gap-1 cursor-pointer"
+                            title="Cancel sample & void report"
+                          >
+                            <XCircle className="w-3 h-3" /> Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="text-slate-400 font-mono">Pending Pathologist</span>
+                          {report && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (onNavigate) onNavigate('print-queue');
+                              }}
+                              className="text-sky-400 hover:text-sky-300 inline-flex items-center gap-1 font-semibold cursor-pointer"
+                            >
+                              Queue <ChevronRight className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -548,72 +653,75 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
                 No finalized items today
               </div>
             ) : (
-              columns.done.map(({ visit, report, doneType }) => (
-                <div
-                  key={visit.id}
-                  className="p-3 bg-[#1e293b] border border-emerald-900/60 hover:border-emerald-700 rounded-xl transition shadow-xs space-y-2.5"
-                >
-                  <div className="flex items-start justify-between gap-1">
-                    <div>
-                      <div className="font-semibold text-slate-100 text-xs leading-snug">
-                        {visit.patient_name}
+              columns.done.map(({ visit, report, doneType, isCancelled, cancellationReason }) => {
+                if (isCancelled) return renderCancelledCard(visit, cancellationReason);
+                return (
+                  <div
+                    key={visit.id}
+                    className="p-3 bg-[#1e293b] border border-emerald-900/60 hover:border-emerald-700 rounded-xl transition shadow-xs space-y-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-1">
+                      <div>
+                        <div className="font-semibold text-slate-100 text-xs leading-snug">
+                          {visit.patient_name}
+                        </div>
+                        <div className="text-[10px] font-mono text-emerald-400 mt-0.5">
+                          {report?.report_code || visit.visit_code}
+                        </div>
                       </div>
-                      <div className="text-[10px] font-mono text-emerald-400 mt-0.5">
-                        {report?.report_code || visit.visit_code}
-                      </div>
+                      {doneType === 'doctor_approved' ? (
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-teal-950 text-teal-300 border border-teal-700 font-bold inline-flex items-center gap-1">
+                          <UserCheck className="w-2.5 h-2.5" /> APPROVED
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold inline-flex items-center gap-1">
+                          <Printer className="w-2.5 h-2.5" /> DISPATCHED
+                        </span>
+                      )}
                     </div>
-                    {doneType === 'doctor_approved' ? (
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-teal-950 text-teal-300 border border-teal-700 font-bold inline-flex items-center gap-1">
-                        <UserCheck className="w-2.5 h-2.5" /> APPROVED
-                      </span>
-                    ) : (
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold inline-flex items-center gap-1">
-                        <Printer className="w-2.5 h-2.5" /> DISPATCHED
-                      </span>
-                    )}
-                  </div>
 
-                  <div className="text-[10px] text-slate-400 space-y-1">
-                    {doneType === 'doctor_approved' ? (
-                      <div className="text-teal-300 font-medium">
-                        Signed off by {report?.approved_by_doctor_name || 'Dr. Suresh Pathologist'}
-                      </div>
-                    ) : (
-                      <div className="text-slate-400 font-medium">
-                        Printed & dispatched directly
-                      </div>
-                    )}
-                    {report?.approval_note && (
-                      <div className="text-[10px] text-slate-300 italic">
-                        Note: "{report.approval_note}"
-                      </div>
-                    )}
-                  </div>
+                    <div className="text-[10px] text-slate-400 space-y-1">
+                      {doneType === 'doctor_approved' ? (
+                        <div className="text-teal-300 font-medium">
+                          Signed off by {report?.approved_by_doctor_name || 'Dr. Suresh Pathologist'}
+                        </div>
+                      ) : (
+                        <div className="text-slate-400 font-medium">
+                          Printed & dispatched directly
+                        </div>
+                      )}
+                      {report?.approval_note && (
+                        <div className="text-[10px] text-slate-300 italic">
+                          Note: "{report.approval_note}"
+                        </div>
+                      )}
+                    </div>
 
-                  <div className="pt-2 border-t border-[#334155]/60 flex items-center justify-between">
-                    <span className="text-[10px] text-slate-500 font-mono">
-                      {report?.approved_at
-                        ? (!isNaN(new Date(report.approved_at).getTime()) ? new Date(report.approved_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : report.approved_at)
-                        : (report?.printed_at ? (!isNaN(new Date(report.printed_at).getTime()) ? new Date(report.printed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : report.printed_at) : 'Ready')}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (onNavigate) onNavigate('print-queue');
-                      }}
-                      className="text-[10px] font-semibold text-emerald-400 hover:text-emerald-300 inline-flex items-center gap-1 cursor-pointer"
-                    >
-                      <Printer className="w-3 h-3" /> View In Queue
-                    </button>
+                    <div className="pt-2 border-t border-[#334155]/60 flex items-center justify-between">
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        {report?.approved_at
+                          ? (!isNaN(new Date(report.approved_at).getTime()) ? new Date(report.approved_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : report.approved_at)
+                          : (report?.printed_at ? (!isNaN(new Date(report.printed_at).getTime()) ? new Date(report.printed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : report.printed_at) : 'Ready')}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onNavigate) onNavigate('print-queue');
+                        }}
+                        className="text-[10px] font-semibold text-emerald-400 hover:text-emerald-300 inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <Printer className="w-3 h-3" /> View In Queue
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
       </div>
 
-      {/* Doctor Approval / Rejection Modal */}
+      {/* Doctor Approval / Rejection / Cancellation Modal */}
       {approvalModal.open && approvalModal.item && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4">
           <div className="w-full max-w-md bg-[#1e293b] border border-[#334155] rounded-2xl p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
@@ -622,11 +730,15 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
                 className={`w-9 h-9 rounded-xl flex items-center justify-center ${
                   approvalModal.action === 'approved'
                     ? 'bg-teal-950 border border-teal-700 text-teal-400'
+                    : approvalModal.action === 'rejected'
+                    ? 'bg-amber-950 border border-amber-700 text-amber-400'
                     : 'bg-rose-950 border border-rose-700 text-rose-400'
                 }`}
               >
                 {approvalModal.action === 'approved' ? (
                   <FileCheck2 className="w-5 h-5" />
+                ) : approvalModal.action === 'rejected' ? (
+                  <AlertTriangle className="w-5 h-5" />
                 ) : (
                   <XCircle className="w-5 h-5" />
                 )}
@@ -635,7 +747,9 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
                 <h3 className="text-sm font-bold text-slate-100 font-sans">
                   {approvalModal.action === 'approved'
                     ? 'Confirm Clinical Approval'
-                    : 'Reject Report Back to Testing'}
+                    : approvalModal.action === 'rejected'
+                    ? 'Reject Report Back to Testing'
+                    : 'Cancel Sample & Void Report'}
                 </h3>
                 <p className="text-[11px] text-slate-400">
                   Report #{approvalModal.item.report?.report_code} • {approvalModal.item.visit?.patient_name}
@@ -657,36 +771,67 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
                   <span>Sample Type:</span>
                   <span className="text-slate-200">{approvalModal.item.visit?.sample_type || 'SERUM'}</span>
                 </div>
+                {approvalModal.item.visit?.client_name && (
+                  <div className="flex justify-between text-slate-400">
+                    <span>Referring Clinic:</span>
+                    <span className="text-emerald-400 font-sans">{approvalModal.item.visit.client_name}</span>
+                  </div>
+                )}
               </div>
 
               <div>
                 <label className="block text-slate-300 font-medium mb-1">
                   {approvalModal.action === 'approved'
                     ? 'Clinical Approval Note (Optional)'
-                    : 'Rejection Reason / Guidance for Lab Tech *'}
+                    : approvalModal.action === 'rejected'
+                    ? 'Rejection Reason / Guidance for Lab Tech *'
+                    : 'Internal Cancellation Reason (Audit Log) *'}
                 </label>
                 <textarea
                   rows={3}
-                  required={approvalModal.action === 'rejected'}
+                  required={approvalModal.action !== 'approved'}
                   placeholder={
                     approvalModal.action === 'approved'
                       ? 'e.g. Findings verified and correlated clinically.'
-                      : 'e.g. Hemolysis noted on specimen; please re-run hemoglobin.'
+                      : approvalModal.action === 'rejected'
+                      ? 'e.g. Hemolysis noted on specimen; please re-run hemoglobin.'
+                      : 'e.g. Gross hemolysis; specimen compromised and patient refusing redraw.'
                   }
                   value={approvalModal.note}
                   onChange={(e) => setApprovalModal((prev) => ({ ...prev, note: e.target.value }))}
-                  className="w-full bg-[#0f172a] border border-[#334155] rounded-lg p-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-teal-500 text-xs"
+                  className="w-full bg-[#0f172a] border border-[#334155] rounded-lg p-2.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-teal-500 text-xs font-sans"
                 />
               </div>
+
+              {approvalModal.action === 'cancelled' && (
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">
+                    Client-Facing Reason (Referring Clinic Portal) *
+                  </label>
+                  <select
+                    value={approvalModal.clientFacingReason}
+                    onChange={(e) => setApprovalModal((prev) => ({ ...prev, clientFacingReason: e.target.value }))}
+                    className="w-full bg-[#0f172a] border border-[#334155] rounded-lg p-2 text-slate-100 focus:outline-none focus:border-rose-500 text-xs font-sans cursor-pointer"
+                  >
+                    <option value="Specimen unsuitable for testing">Specimen unsuitable for testing</option>
+                    <option value="Insufficient sample volume">Insufficient sample volume</option>
+                    <option value="Collection cancelled">Collection cancelled</option>
+                    <option value="Other — see lab">Other — see lab</option>
+                  </select>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Constrained client-safe reason visible to referring clinics in their portal.
+                  </p>
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#334155]">
                 <button
                   type="button"
                   disabled={submitting}
-                  onClick={() => setApprovalModal({ open: false, item: null, action: 'approved', note: '' })}
+                  onClick={() => setApprovalModal({ open: false, item: null, action: 'approved', note: '', clientFacingReason: 'Specimen unsuitable for testing' })}
                   className="px-3.5 py-1.5 bg-[#0f172a] hover:bg-[#334155] text-slate-300 rounded-lg font-medium transition cursor-pointer"
                 >
-                  Cancel
+                  Close
                 </button>
                 <button
                   type="submit"
@@ -694,6 +839,8 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
                   className={`px-4 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 shadow-md cursor-pointer ${
                     approvalModal.action === 'approved'
                       ? 'bg-teal-500 hover:bg-teal-400 text-slate-950'
+                      : approvalModal.action === 'rejected'
+                      ? 'bg-amber-600 hover:bg-amber-500 text-slate-950'
                       : 'bg-rose-600 hover:bg-rose-500 text-white'
                   }`}
                 >
@@ -703,9 +850,13 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
                     <>
                       <CheckCircle2 className="w-3.5 h-3.5" /> Sign-off & Approve
                     </>
+                  ) : approvalModal.action === 'rejected' ? (
+                    <>
+                      <AlertTriangle className="w-3.5 h-3.5" /> Submit Rejection
+                    </>
                   ) : (
                     <>
-                      <XCircle className="w-3.5 h-3.5" /> Submit Rejection
+                      <XCircle className="w-3.5 h-3.5" /> Cancel & Void Sample
                     </>
                   )}
                 </button>

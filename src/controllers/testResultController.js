@@ -1,6 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 const { query, withTransaction } = require('../db');
 const { logAuditEvent } = require('../utils/audit');
+const { calculateBillForVisit } = require('./reportController');
 
 /**
  * Create a single freeform test result
@@ -285,6 +286,13 @@ async function deleteTestResult(req, res, next) {
   }
 }
 
+const CLIENT_FACING_REASONS = [
+  'Specimen unsuitable for testing',
+  'Insufficient sample volume',
+  'Collection cancelled',
+  'Other — see lab',
+];
+
 /**
  * Cancel a single test result (Soft Delete)
  * POST /api/test-results/:id/cancel
@@ -292,7 +300,7 @@ async function deleteTestResult(req, res, next) {
 async function cancelTestResult(req, res, next) {
   try {
     const { id } = req.params;
-    const { reason } = req.body;
+    const { reason, client_facing_reason } = req.body;
 
     if (!reason || !reason.trim()) {
       return res.status(400).json({
@@ -301,7 +309,7 @@ async function cancelTestResult(req, res, next) {
       });
     }
 
-    const allowedRoles = ['front-desk', 'lab-tech', 'admin'];
+    const allowedRoles = ['front-desk', 'lab-tech', 'doctor', 'admin'];
     if (!allowedRoles.includes(req.user?.role)) {
       return res.status(403).json({
         success: false,
@@ -339,17 +347,42 @@ async function cancelTestResult(req, res, next) {
       });
     }
 
-    // 3. Mark test as cancelled
+    // Check if visit is linked to a referring clinic
+    const visitRes = await query('SELECT * FROM visits WHERE id = $1', [testItem.visit_id]);
+    let visit = visitRes.rows[0];
+    if (!visit && fallbackStore?.visits) {
+      visit = fallbackStore.visits.find((v) => v.id === testItem.visit_id);
+    }
+
+    const hasClientPortal = !!(visit && (visit.client_name || visit.client_code));
+    if (hasClientPortal) {
+      if (!client_facing_reason || !CLIENT_FACING_REASONS.includes(client_facing_reason.trim())) {
+        return res.status(400).json({
+          success: false,
+          error: `Client-facing reason is required for samples linked to a referring clinic. Must be one of: ${CLIENT_FACING_REASONS.join(', ')}`,
+        });
+      }
+    } else if (client_facing_reason && !CLIENT_FACING_REASONS.includes(client_facing_reason.trim())) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid client-facing reason. Must be one of: ${CLIENT_FACING_REASONS.join(', ')}`,
+      });
+    }
+
+    const clientReason = client_facing_reason ? client_facing_reason.trim() : null;
     const nowIso = new Date().toISOString();
+
+    // 3. Mark test as cancelled
     await query(
       `UPDATE test_results
        SET status = 'cancelled',
            cancellation_reason = $1,
+           client_facing_reason = $2,
            cancelled_at = NOW(),
-           cancelled_by = $2,
+           cancelled_by = $3,
            updated_at = NOW()
-       WHERE id = $3`,
-      [reason.trim(), req.user.id, testItem.id]
+       WHERE id = $4`,
+      [reason.trim(), clientReason, req.user.id, testItem.id]
     );
 
     if (fallbackStore?.test_results) {
@@ -357,6 +390,7 @@ async function cancelTestResult(req, res, next) {
       if (storeTest) {
         storeTest.status = 'cancelled';
         storeTest.cancellation_reason = reason.trim();
+        storeTest.client_facing_reason = clientReason;
         storeTest.cancelled_at = nowIso;
         storeTest.cancelled_by = req.user.id;
       }
@@ -364,10 +398,108 @@ async function cancelTestResult(req, res, next) {
 
     testItem.status = 'cancelled';
     testItem.cancellation_reason = reason.trim();
+    testItem.client_facing_reason = clientReason;
     testItem.cancelled_at = nowIso;
     testItem.cancelled_by = req.user.id;
 
-    // 4. Log non-blocking audit event
+    // 4. Billing recalculation if report exists
+    let updatedReport = null;
+    if (report) {
+      // Find remaining active tests for this visit
+      let remainingTests = [];
+      try {
+        const remRes = await query(
+          "SELECT test_name FROM test_results WHERE visit_id = $1 AND (status IS NULL OR status != 'cancelled')",
+          [testItem.visit_id]
+        );
+        remainingTests = remRes.rows || [];
+      } catch (_) {
+        if (fallbackStore?.test_results) {
+          remainingTests = fallbackStore.test_results.filter(
+            (t) => t.visit_id === testItem.visit_id && t.status !== 'cancelled'
+          );
+        }
+      }
+
+      if (remainingTests.length > 0) {
+        // Recalculate bill excluding cancelled test
+        const activeDoctorId = report.doctor_id || visit?.doctor_id || null;
+        const newBilling = await calculateBillForVisit(activeDoctorId, remainingTests);
+
+        await query(
+          `UPDATE reports
+           SET total_amount = $1,
+               billing_breakdown = $2,
+               updated_at = NOW()
+           WHERE id = $3`,
+          [newBilling.total_amount, JSON.stringify(newBilling.billing_breakdown), report.id]
+        );
+
+        if (fallbackStore?.reports) {
+          const storeRep = fallbackStore.reports.find((r) => r.id === report.id);
+          if (storeRep) {
+            storeRep.total_amount = newBilling.total_amount;
+            storeRep.billing_breakdown = newBilling.billing_breakdown;
+          }
+        }
+        report.total_amount = newBilling.total_amount;
+        report.billing_breakdown = newBilling.billing_breakdown;
+        updatedReport = report;
+      } else {
+        // All tests cancelled -> entire report and visit become cancelled with zeroed bill
+        await query(
+          `UPDATE reports
+           SET status = 'cancelled',
+               cancellation_reason = $1,
+               client_facing_reason = $2,
+               total_amount = 0.00,
+               cancelled_at = NOW(),
+               cancelled_by = $3,
+               updated_at = NOW()
+           WHERE id = $4`,
+          [reason.trim(), clientReason, req.user.id, report.id]
+        );
+
+        await query(
+          `UPDATE visits
+           SET status = 'cancelled',
+               cancellation_reason = $1,
+               client_facing_reason = $2,
+               cancelled_at = NOW(),
+               cancelled_by = $3,
+               updated_at = NOW()
+           WHERE id = $4`,
+          [reason.trim(), clientReason, req.user.id, testItem.visit_id]
+        );
+
+        if (fallbackStore?.reports) {
+          const storeRep = fallbackStore.reports.find((r) => r.id === report.id);
+          if (storeRep) {
+            storeRep.status = 'cancelled';
+            storeRep.cancellation_reason = reason.trim();
+            storeRep.client_facing_reason = clientReason;
+            storeRep.total_amount = 0.00;
+            storeRep.cancelled_at = nowIso;
+            storeRep.cancelled_by = req.user.id;
+          }
+        }
+        if (fallbackStore?.visits) {
+          const storeVis = fallbackStore.visits.find((v) => v.id === testItem.visit_id);
+          if (storeVis) {
+            storeVis.status = 'cancelled';
+            storeVis.cancellation_reason = reason.trim();
+            storeVis.client_facing_reason = clientReason;
+            storeVis.cancelled_at = nowIso;
+            storeVis.cancelled_by = req.user.id;
+          }
+        }
+        report.status = 'cancelled';
+        report.total_amount = 0.00;
+        updatedReport = report;
+      }
+    }
+
+    // 5. Log non-blocking audit event
     await logAuditEvent({
       userId: req.user.id,
       clientDeviceId: req.clientDeviceId,
@@ -378,8 +510,10 @@ async function cancelTestResult(req, res, next) {
         test_name: testItem.test_name,
         visit_id: testItem.visit_id,
         reason: reason.trim(),
+        client_facing_reason: clientReason,
         cancelled_by: req.user.username || req.user.id,
         role: req.user.role,
+        remaining_bill: updatedReport ? updatedReport.total_amount : undefined,
       },
       ipAddress: req.clientIp,
       userAgent: req.headers['user-agent'] || null,
@@ -389,6 +523,7 @@ async function cancelTestResult(req, res, next) {
       success: true,
       message: `Test '${testItem.test_name}' has been cancelled`,
       test_result: testItem,
+      report: updatedReport,
     });
   } catch (err) {
     next(err);

@@ -18,3 +18,13 @@ ALTER TABLE test_results ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
 ALTER TABLE test_results ADD COLUMN IF NOT EXISTS cancelled_by UUID REFERENCES users(id) ON DELETE SET NULL;
 
 CREATE INDEX IF NOT EXISTS idx_test_results_status ON test_results(status);
+
+-- 3. Client-facing cancellation metadata & visit-level cancellation support
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS client_facing_reason VARCHAR(100);
+ALTER TABLE test_results ADD COLUMN IF NOT EXISTS client_facing_reason VARCHAR(100);
+
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS cancellation_reason TEXT;
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS client_facing_reason VARCHAR(100);
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
+ALTER TABLE visits ADD COLUMN IF NOT EXISTS cancelled_by UUID REFERENCES users(id) ON DELETE SET NULL;
+
