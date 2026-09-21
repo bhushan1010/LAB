@@ -1,4 +1,7 @@
 @import "tailwindcss";
+@import "./shared/ui/theme.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
   :root {
@@ -7,10 +10,11 @@
   }
 
   body {
-    background-color: #0b1326;
-    color: #f1f5f9;
+    background-color: var(--bg-app, #0b1326);
+    color: var(--text-primary, #f1f5f9);
     font-family: var(--font-sans);
     min-height: 100vh;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   /* Sleek clinical scrollbar */

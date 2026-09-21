@@ -13,6 +13,7 @@ const PublicReportPage = lazy(() => import('@modules/operations/PublicReportPage
 const UserManagementPage = lazy(() => import('@modules/admin/UserManagementPage'));
 const AuditLogPage = lazy(() => import('@modules/admin/AuditLogPage'));
 const DoctorBillingPage = lazy(() => import('@modules/admin/DoctorBillingPage'));
+const UiPreview = lazy(() => import('@shared/ui/UiPreview'));
 
 // Fallback spinner for in-layout route transitions
 function RouteLoadingFallback({ message = 'Loading module...' }) {
@@ -112,6 +113,15 @@ function AppContent() {
     return (
       <Suspense fallback={<FullPageLoadingFallback message="Retrieving Clinical Report..." />}>
         <PublicReportPage />
+      </Suspense>
+    );
+  }
+
+  // Temporary isolated UI test route to visually confirm design primitives in isolation
+  if (currentPath === '/ui-preview' || window.location.hash === '#/ui-preview') {
+    return (
+      <Suspense fallback={<FullPageLoadingFallback message="Loading UI Preview..." />}>
+        <UiPreview />
       </Suspense>
     );
   }

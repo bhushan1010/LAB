@@ -19,7 +19,6 @@ import {
   Printer,
   Download,
   CheckCircle2,
-  ScanLine,
   X,
   FileText,
   Plus,

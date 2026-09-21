@@ -1,0 +1,73 @@
+/* Theme Tokens for LabTrack LIMS (Light & Dark with 3-Tier Clinical Priority System) */
+
+:root {
+  --bg-app: #f8fafc;
+  --surface-card: #ffffff;
+  --surface-secondary: #f1f5f9;
+  --surface-hover: #e2e8f0;
+  --border-subtle: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+
+  /* Priority Attention Tiers - Light Mode */
+  --tier1-action: #e11d48;
+  --tier1-action-amber: #f59e0b;
+  --tier1-bg: #fff1f2;
+  --tier1-border: #fecdd3;
+  --tier1-text: #9f1239;
+
+  --tier2-progress: #0284c7;
+  --tier2-bg: #f0f9ff;
+  --tier2-border: #bae6fd;
+  --tier2-text: #0369a1;
+
+  --tier3-routine: #64748b;
+  --tier3-bg: #f1f5f9;
+  --tier3-border: #cbd5e1;
+  --tier3-text: #475569;
+
+  --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+.dark {
+  --bg-app: #080e1d;
+  --surface-card: #0e172e;
+  --surface-secondary: #131f3e;
+  --surface-hover: #1e2c52;
+  --border-subtle: #1e293b;
+  --border-strong: #334155;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  /* Priority Attention Tiers - Dark Mode */
+  --tier1-action: #fb7185;
+  --tier1-action-amber: #fbbf24;
+  --tier1-bg: rgba(225, 29, 72, 0.18);
+  --tier1-border: rgba(225, 29, 72, 0.45);
+  --tier1-text: #fecdd3;
+
+  --tier2-progress: #38bdf8;
+  --tier2-bg: rgba(14, 165, 233, 0.16);
+  --tier2-border: rgba(14, 165, 233, 0.4);
+  --tier2-text: #bae6fd;
+
+  --tier3-routine: #94a3b8;
+  --tier3-bg: rgba(51, 65, 85, 0.4);
+  --tier3-border: rgba(51, 65, 85, 0.6);
+  --tier3-text: #cbd5e1;
+}
+
+.theme-app {
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.font-code {
+  font-family: var(--font-mono);
+}

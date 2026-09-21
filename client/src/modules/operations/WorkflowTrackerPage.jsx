@@ -10,15 +10,18 @@ import {
   AlertTriangle,
   XCircle,
   FileCheck2,
-  UserCheck,
   ChevronRight,
   Printer,
   AlertCircle,
 } from 'lucide-react';
+import { StatusChip } from '@shared/ui';
+import PipelineStats from './PipelineStats';
+import MobileCardView from './MobileCardView';
 
 export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
   const { user } = useAuth();
   const role = user?.role || 'front-desk';
+  const [stageFilter, setStageFilter] = useState('ALL');
 
   const [visits, setVisits] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -156,6 +159,23 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
     };
   }, [filteredItems, showCancelled]);
 
+  // Stage-filtered items for mobile card view and focused inspection
+  const stageFilteredItems = useMemo(() => {
+    return filteredItems.filter((i) => {
+      if (i.isCancelled && !showCancelled) return false;
+      if (stageFilter === 'ALL') return true;
+      if (stageFilter === 'PRIORITY_IMP') {
+        return (
+          i.visit?.sample_type?.toUpperCase().includes('STAT') ||
+          i.visit?.sample_type?.toUpperCase().includes('URGENT') ||
+          i.visit?.urgency === 'STAT' ||
+          i.visit?.urgency === 'URGENT'
+        );
+      }
+      return i.stage === stageFilter;
+    });
+  }, [filteredItems, stageFilter, showCancelled]);
+
   // Handle Doctor Approval / Rejection / Cancellation Action
   const handleDoctorAction = async (e) => {
     e.preventDefault();
@@ -217,9 +237,7 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
             {visit.patient_uhid} • {visit.visit_code}
           </div>
         </div>
-        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-rose-950/80 text-rose-300 border border-rose-800 uppercase font-bold tracking-wider">
-          CANCELLED
-        </span>
+        <StatusChip status="CANCELLED" size="sm" />
       </div>
       <div className="p-1.5 bg-rose-950/30 border border-rose-900/40 rounded text-[10px] text-rose-300 font-mono">
         Reason: {cancellationReason || 'Sample cancelled'}
@@ -313,8 +331,34 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
         </div>
       )}
 
-      {/* 4 Pipeline Stages (Columns) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+      {/* Visual Pipeline Stage Breakdown (Ported from labtrack-lims) */}
+      <PipelineStats
+        items={workflowItems}
+        currentStatusFilter={stageFilter}
+        onSelectFilter={setStageFilter}
+      />
+
+      {/* Mobile-Responsive Card View (Ported from labtrack-lims) */}
+      <div className="block md:hidden">
+        <MobileCardView
+          items={stageFilteredItems}
+          role={role}
+          onEditReport={onEditReport}
+          onOpenApproval={(item, action) => {
+            setApprovalModal({
+              open: true,
+              item: { visit: item.visit, report: item.report },
+              action,
+              note: '',
+              clientFacingReason: 'Specimen unsuitable for testing',
+            });
+          }}
+          onNavigate={onNavigate}
+        />
+      </div>
+
+      {/* 4 Pipeline Stages (Columns) - Desktop View */}
+      <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
         {/* STAGE 1: REGISTERED */}
         <div className="bg-[#131b2e] border border-[#334155] rounded-xl flex flex-col overflow-hidden shadow-lg">
           <div className="p-3.5 border-b border-[#334155] bg-[#0b1326] flex items-center justify-between">
@@ -351,9 +395,7 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
                           {visit.patient_uhid} • {visit.visit_code}
                         </div>
                       </div>
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800">
-                        INTAKE
-                      </span>
+                      <StatusChip status="REGISTERED" size="sm" label="INTAKE" />
                     </div>
 
                     <div className="text-[11px] text-slate-300 space-y-1">
@@ -438,15 +480,7 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
                           {visit.patient_uhid} • {visit.visit_code}
                         </div>
                       </div>
-                      <span
-                        className={`text-[9px] font-mono px-1.5 py-0.5 rounded uppercase font-bold border ${
-                          isRejected
-                            ? 'bg-rose-950 text-rose-300 border-rose-800'
-                            : 'bg-amber-950 text-amber-400 border-amber-800'
-                        }`}
-                      >
-                        {isRejected ? 'REJECTED' : 'IN TESTING'}
-                      </span>
+                      <StatusChip status={isRejected ? 'REJECTED' : 'TESTING'} size="sm" />
                     </div>
 
                     {isRejected && report?.approval_note && (
@@ -535,9 +569,7 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
                           {report?.report_code || visit.visit_code}
                         </div>
                       </div>
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-teal-950 text-teal-300 border border-teal-700 font-bold">
-                        AWAITING SIGN-OFF
-                      </span>
+                      <StatusChip status="DOCTOR_APPROVAL" size="sm" label="AWAITING SIGN-OFF" />
                     </div>
 
                     <div className="text-[11px] text-slate-300 space-y-1">
@@ -664,15 +696,11 @@ export default function WorkflowTrackerPage({ onNavigate, onEditReport }) {
                           {report?.report_code || visit.visit_code}
                         </div>
                       </div>
-                      {doneType === 'doctor_approved' ? (
-                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-teal-950 text-teal-300 border border-teal-700 font-bold inline-flex items-center gap-1">
-                          <UserCheck className="w-2.5 h-2.5" /> APPROVED
-                        </span>
-                      ) : (
-                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700 font-bold inline-flex items-center gap-1">
-                          <Printer className="w-2.5 h-2.5" /> DISPATCHED
-                        </span>
-                      )}
+                      <StatusChip
+                        status={doneType === 'doctor_approved' ? 'APPROVED' : 'PRINTED'}
+                        size="sm"
+                        label={doneType === 'doctor_approved' ? 'APPROVED' : 'DISPATCHED'}
+                      />
                     </div>
 
                     <div className="text-[10px] text-slate-400 space-y-1">

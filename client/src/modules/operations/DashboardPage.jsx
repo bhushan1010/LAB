@@ -20,6 +20,8 @@ import {
   ClipboardList,
   Building2,
 } from 'lucide-react';
+import { StatusChip } from '@shared/ui';
+import PipelineStats from './PipelineStats';
 
 /* =========================================================================
    1. FRONT-DESK DASHBOARD SUB-COMPONENT
@@ -369,15 +371,7 @@ function FrontDeskDashboard({ onNavigate, syncStats, recentReports }) {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {r.printed_at ? (
-                      <span className="text-[9px] uppercase font-bold font-mono text-emerald-300 bg-emerald-950/60 border border-emerald-800 px-2 py-0.5 rounded-md">
-                        Printed
-                      </span>
-                    ) : (
-                      <span className="text-[9px] uppercase font-bold font-mono text-amber-300 bg-amber-950/60 border border-amber-800 px-2 py-0.5 rounded-md">
-                        Needs Print
-                      </span>
-                    )}
+                    <StatusChip status={r.printed_at ? 'PRINTED' : 'PENDING_PRINT'} size="sm" />
                     <button
                       type="button"
                       onClick={() => onNavigate('print-queue')}
@@ -704,17 +698,7 @@ function AdminDashboard({ onNavigate, syncStats, recentReports }) {
                   <div key={log.id} className="py-3 flex items-center justify-between text-xs hover:bg-[#131b2e]/60 px-2 rounded-lg transition">
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-2">
-                        <span
-                          className={`text-[9px] font-mono uppercase px-1.5 py-0.5 rounded font-bold ${
-                            log.action?.includes('FORBIDDEN') || log.action?.includes('FAILED')
-                              ? 'bg-rose-950/80 text-rose-300 border border-rose-800'
-                              : log.action?.includes('SUCCESS') || log.action?.includes('GENERATE')
-                              ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800'
-                              : 'bg-slate-800 text-slate-300 border border-slate-700'
-                          }`}
-                        >
-                          {log.action}
-                        </span>
+                        <StatusChip status={log.action} size="sm" />
                         <span className="font-semibold text-slate-100">
                           {log.user_full_name || log.username || 'Public/Guest'}
                         </span>
@@ -827,10 +811,42 @@ export default function DashboardPage({ onNavigate }) {
   const { user } = useAuth();
   const [syncStats, setSyncStats] = useState({ total: 0, synced: 0, unsynced: 0, failed: 0 });
   const [recentReports, setRecentReports] = useState([]);
+  const [pipelineItems, setPipelineItems] = useState([]);
 
   useEffect(() => {
     getSyncStats().then(setSyncStats);
     getQueuedReports().then((reps) => setRecentReports(reps));
+
+    async function loadPipeline() {
+      try {
+        const res = await api.get('/visits?limit=100');
+        if (res.data.success) {
+          const items = (res.data.visits || []).map((v) => {
+            const report = v.report_id ? {
+              doctor_approval_status: v.doctor_approval_status,
+              printed_at: v.printed_at,
+            } : null;
+            let stage = 'registered';
+            if (report) {
+              if (report.doctor_approval_status === 'approved' || report.printed_at) stage = 'done';
+              else if (report.doctor_approval_status === 'rejected') stage = 'testing';
+              else stage = 'approval';
+            } else {
+              if (v.status === 'in-testing' || v.status === 'in_testing') stage = 'testing';
+              else stage = 'registered';
+            }
+            return {
+              visit: v,
+              report,
+              stage,
+              isCancelled: v.status === 'cancelled',
+            };
+          });
+          setPipelineItems(items);
+        }
+      } catch (_) {}
+    }
+    loadPipeline();
   }, []);
 
   const role = user?.role || 'front-desk';
@@ -870,6 +886,12 @@ export default function DashboardPage({ onNavigate }) {
           </button>
         </div>
       </div>
+
+      {/* Live Pipeline Overview Strip */}
+      <PipelineStats
+        items={pipelineItems}
+        onSelectFilter={() => onNavigate('workflow')}
+      />
 
       {/* Render Role-Specific View */}
       {role === 'front-desk' && (
