@@ -13,6 +13,8 @@ storage/temp/
 # Logs
 *.log
 npm-debug.log*
+out.txt
+test-output.txt
 
 # OS Files
 .DS_Store
@@ -33,4 +35,6 @@ qr_bordered.png
 *.jp2
 /graphify-out
 /test
-/test
+/.agents
+.graphifyignore
+skills-lock.json

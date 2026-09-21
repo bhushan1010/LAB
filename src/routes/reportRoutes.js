@@ -10,8 +10,16 @@ router.use(authenticate);
 // List all reports with filtering
 router.get('/', reportController.listReports);
 
+// Doctor stage reports pending clinical approval (Stage 3)
+router.get(
+  '/pending-doctor-approval',
+  authorize('doctor', 'admin'),
+  reportController.getDoctorPendingReports
+);
+
 // Get full report by internal report ID
 router.get('/:id', reportController.getReportById);
+
 
 // Generate report (creates barcode + unguessable QR token)
 router.post(

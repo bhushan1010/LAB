@@ -10,6 +10,10 @@ router.post('/login', validate(validateLogin), authController.login);
 // Authenticated current user profile
 router.get('/me', authenticate, authController.getProfile);
 
+// Authenticated current user self password change
+router.put('/me/password', authenticate, authController.changeOwnPassword);
+
+
 // Admin-only user management routes
 router.post('/users', authenticate, authorize('admin'), authController.createUser);
 router.get('/users', authenticate, authorize('admin'), authController.listUsers);

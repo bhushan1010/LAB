@@ -446,10 +446,125 @@ async function updateUser(req, res, next) {
   }
 }
 
+/**
+ * Self-service password change for currently authenticated user
+ * PUT /api/auth/me/password
+ */
+async function changeOwnPassword(req, res, next) {
+  try {
+    const currentPassword = req.body.current_password || req.body.currentPassword;
+    const newPassword = req.body.new_password || req.body.newPassword;
+    const confirmPassword = req.body.confirm_password || req.body.confirmPassword;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        error: 'Current password, new password, and password confirmation are required',
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        error: 'New password and confirmation do not match',
+      });
+    }
+
+    if (typeof newPassword !== 'string' || newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: 'New password must be at least 6 characters long',
+      });
+    }
+
+    // Always source strictly from req.user.id — never accept or inspect a target user ID
+    const userId = req.user.id;
+
+    // Fetch user password_hash from DB
+    const { rows } = await query(
+      'SELECT id, username, password_hash, full_name, role FROM users WHERE id = $1',
+      [userId]
+    );
+
+    let userRecord = rows[0];
+
+    // Fallback store support for offline/demo mode
+    const fallbackStore = require('../db/fallbackStore');
+    if (!userRecord && fallbackStore?.users) {
+      userRecord = fallbackStore.users.find((u) => u.id === userId || u.username === req.user.username);
+    }
+
+    if (!userRecord) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found',
+      });
+    }
+
+    // Verify current password via bcrypt.compare
+    const isMatch = await bcrypt.compare(currentPassword, userRecord.password_hash);
+    if (!isMatch) {
+      await logAuditEvent({
+        userId,
+        clientDeviceId: req.clientDeviceId,
+        action: 'PASSWORD_CHANGE_FAILED',
+        entityType: 'user',
+        entityId: userId,
+        details: { username: req.user.username, reason: 'Incorrect current password' },
+        ipAddress: req.clientIp,
+      });
+
+      return res.status(400).json({
+        success: false,
+        error: 'Incorrect current password',
+      });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const newHash = await bcrypt.hash(newPassword, salt);
+
+    // Update in database
+    await query(
+      'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
+      [newHash, userId]
+    );
+
+    // Update in fallback store
+    if (fallbackStore?.users) {
+      const fbUser = fallbackStore.users.find((u) => u.id === userId || u.username === req.user.username);
+      if (fbUser) {
+        fbUser.password_hash = newHash;
+        fbUser.updated_at = new Date().toISOString();
+      }
+    }
+
+    // Audit log
+    await logAuditEvent({
+      userId,
+      clientDeviceId: req.clientDeviceId,
+      action: 'PASSWORD_CHANGED_SELF',
+      entityType: 'user',
+      entityId: userId,
+      details: { username: req.user.username },
+      ipAddress: req.clientIp,
+    });
+
+    res.json({
+      success: true,
+      message: 'Password changed successfully',
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   login,
   getProfile,
   createUser,
   listUsers,
   updateUser,
+  changeOwnPassword,
 };
+

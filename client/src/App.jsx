@@ -1,16 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import LoginPage from './pages/LoginPage';
-import ReportStudioPage from './pages/ReportStudioPage';
-import PublicReportPage from './pages/PublicReportPage';
-import DashboardPage from './pages/DashboardPage';
-import PrintQueuePage from './pages/PrintQueuePage';
-import UserManagementPage from './pages/admin/UserManagementPage';
-import AuditLogPage from './pages/admin/AuditLogPage';
-import ClientPortalPage from './pages/ClientPortalPage';
-import WorkflowTrackerPage from './pages/WorkflowTrackerPage';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
+import { AuthProvider, useAuth, LoginPage } from '@modules/auth';
+import DashboardPage from '@modules/operations/DashboardPage';
 import Navbar from './components/layout/Navbar';
-import { startBackgroundSync } from './services/syncWorker';
+import { startBackgroundSync } from '@core/offline';
+
+// Lazy-loaded secondary route modules (code-split)
+const ReportStudioPage = lazy(() => import('@modules/clinical-studio'));
+const WorkflowTrackerPage = lazy(() => import('@modules/operations/WorkflowTrackerPage'));
+const PrintQueuePage = lazy(() => import('@modules/operations/PrintQueuePage'));
+const ClientPortalPage = lazy(() => import('@modules/operations/ClientPortalPage'));
+const PublicReportPage = lazy(() => import('@modules/operations/PublicReportPage'));
+const UserManagementPage = lazy(() => import('@modules/admin/UserManagementPage'));
+const AuditLogPage = lazy(() => import('@modules/admin/AuditLogPage'));
+const DoctorBillingPage = lazy(() => import('@modules/admin/DoctorBillingPage'));
+
+// Fallback spinner for in-layout route transitions
+function RouteLoadingFallback({ message = 'Loading module...' }) {
+  return (
+    <div className="flex flex-col items-center justify-center p-12 text-slate-400 min-h-[40vh]">
+      <div className="flex items-center gap-3">
+        <div className="w-5 h-5 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+        <span className="text-xs font-mono tracking-wide text-slate-300">{message}</span>
+      </div>
+    </div>
+  );
+}
+
+// Fallback spinner for full-page views (studio, public report)
+function FullPageLoadingFallback({ message = 'Loading view...' }) {
+  return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400 text-xs">
+      <div className="flex items-center gap-3">
+        <div className="w-5 h-5 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+        <span className="font-mono tracking-wide text-slate-300">{message}</span>
+      </div>
+    </div>
+  );
+}
 
 function AppContent() {
   const { user, loading } = useAuth();
@@ -56,7 +82,7 @@ function AppContent() {
         return;
       }
 
-      if ((hash === 'users' || hash === 'audit') && role !== 'admin') {
+      if ((hash === 'users' || hash === 'audit' || hash === 'billing') && role !== 'admin') {
         window.location.hash = '#/dashboard';
         setCurrentView('dashboard');
         return;
@@ -68,7 +94,7 @@ function AppContent() {
         return;
       }
 
-      if (['dashboard', 'studio', 'print-queue', 'users', 'audit', 'client-portal', 'workflow'].includes(hash)) {
+      if (['dashboard', 'studio', 'print-queue', 'users', 'audit', 'billing', 'client-portal', 'workflow'].includes(hash)) {
         setCurrentView(hash);
       } else {
         window.location.hash = '#/dashboard';
@@ -83,7 +109,11 @@ function AppContent() {
 
   // Check if public report view route (/report/:token or /reports/view/:token)
   if (currentPath.startsWith('/report/') || currentPath.startsWith('/reports/view/')) {
-    return <PublicReportPage />;
+    return (
+      <Suspense fallback={<FullPageLoadingFallback message="Retrieving Clinical Report..." />}>
+        <PublicReportPage />
+      </Suspense>
+    );
   }
 
   // Loading state while checking token
@@ -109,7 +139,9 @@ function AppContent() {
       <div className="min-h-screen bg-slate-950 flex flex-col">
         <Navbar currentView="client-portal" onNavigate={() => {}} />
         <main className="flex-1">
-          <ClientPortalPage />
+          <Suspense fallback={<RouteLoadingFallback message="Loading Client Portal..." />}>
+            <ClientPortalPage />
+          </Suspense>
         </main>
       </div>
     );
@@ -129,7 +161,7 @@ function AppContent() {
       setCurrentView('client-portal');
       return;
     }
-    if ((view === 'users' || view === 'audit') && role !== 'admin') {
+    if ((view === 'users' || view === 'audit' || view === 'billing') && role !== 'admin') {
       window.location.hash = '#/dashboard';
       setCurrentView('dashboard');
       return;
@@ -146,11 +178,13 @@ function AppContent() {
   // Render active view based on currentView
   if (currentView === 'studio' && role !== 'front-desk') {
     return (
-      <ReportStudioPage
-        currentView={currentView}
-        onNavigate={handleNavigate}
-        initialReportData={editingReport}
-      />
+      <Suspense fallback={<FullPageLoadingFallback message="Initializing Report Studio..." />}>
+        <ReportStudioPage
+          currentView={currentView}
+          onNavigate={handleNavigate}
+          initialReportData={editingReport}
+        />
+      </Suspense>
     );
   }
 
@@ -158,14 +192,17 @@ function AppContent() {
     <div className="min-h-screen bg-slate-950 flex flex-col">
       <Navbar currentView={currentView} onNavigate={handleNavigate} />
       <main className="flex-1">
-        {currentView === 'dashboard' && <DashboardPage onNavigate={handleNavigate} />}
-        {currentView === 'workflow' && (
-          <WorkflowTrackerPage onNavigate={handleNavigate} onEditReport={handleEditReport} />
-        )}
-        {currentView === 'print-queue' && <PrintQueuePage onEditReport={handleEditReport} />}
-        {currentView === 'users' && role === 'admin' && <UserManagementPage />}
-        {currentView === 'audit' && role === 'admin' && <AuditLogPage />}
-        {currentView === 'client-portal' && <ClientPortalPage />}
+        <Suspense fallback={<RouteLoadingFallback />}>
+          {currentView === 'dashboard' && <DashboardPage onNavigate={handleNavigate} />}
+          {currentView === 'workflow' && (
+            <WorkflowTrackerPage onNavigate={handleNavigate} onEditReport={handleEditReport} />
+          )}
+          {currentView === 'print-queue' && <PrintQueuePage onEditReport={handleEditReport} />}
+          {currentView === 'users' && role === 'admin' && <UserManagementPage />}
+          {currentView === 'audit' && role === 'admin' && <AuditLogPage />}
+          {currentView === 'billing' && role === 'admin' && <DoctorBillingPage />}
+          {currentView === 'client-portal' && <ClientPortalPage />}
+        </Suspense>
       </main>
     </div>
   );

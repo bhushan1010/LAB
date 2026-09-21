@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-13T17:57:15.526Z",
+  "timestamp": "2026-09-20T04:42:44.273Z",
   "environment": {
     "frontendUrl": "http://localhost:3000",
     "backendUrl": "http://localhost:5000",
@@ -16,10 +16,10 @@
       "name": "Cross-Role End-to-End Workflow",
       "status": "PASS",
       "details": {
-        "patientUhid": "WALK-R526-8918",
-        "visitCode": "MIND847637",
-        "reportCode": "REP-202609-6838",
-        "qrToken": "6b66e0a69e6db6cf3955b7ef445615e2b23b2691370a121fc2c625e4de23703b",
+        "patientUhid": "WALK-R426-1348",
+        "visitCode": "MIND414061",
+        "reportCode": "REP-202609-6870",
+        "qrToken": "ebb509f001b8667af0f740b9e3cf66fb116b16fff77b7a86f81ebbf7d2127fab",
         "adminFoundCount": 1
       }
     },
@@ -28,7 +28,7 @@
       "status": "PASS",
       "details": {
         "frontDeskCount": 2,
-        "adminCount": 9,
+        "adminCount": 18,
         "serverScopingEnforced": true
       }
     },

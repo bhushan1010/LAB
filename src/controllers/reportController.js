@@ -904,15 +904,17 @@ async function doctorApproval(req, res, next) {
       await query(
         `UPDATE reports
          SET doctor_approval_status = $1,
-             approved_by_doctor_id = $2,
-             approved_by_doctor_name = $3,
+             approved_by_doctor_name = $2,
              approved_at = NOW(),
-             approval_note = $4,
+             approval_note = $3,
              updated_at = NOW()
-         WHERE id = $5`,
-        [status, doctorId, doctorName, approvalNote, report.id]
+         WHERE id = $4`,
+        [status, doctorName, approvalNote, report.id]
       );
-    } catch (_) {}
+    } catch (err) {
+      console.error('Failed to update report approval in DB:', err);
+    }
+
 
     // If rejected, route visit back to in_testing stage
     if (status === 'rejected') {
@@ -981,6 +983,64 @@ async function doctorApproval(req, res, next) {
   }
 }
 
+/**
+ * Doctor stage reports pending clinical approval (Stage 3)
+ * GET /api/reports/pending-doctor-approval
+ */
+async function getDoctorPendingReports(req, res, next) {
+  try {
+    const role = req.user?.role;
+    if (role !== 'doctor' && role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden: Doctor pending reports only accessible by doctor or admin',
+      });
+    }
+
+    const sql = `
+      SELECT r.id, r.report_code, r.barcode_value, r.status as report_status, r.created_at,
+             r.doctor_approval_status, r.printed_at,
+             v.id as visit_id, v.visit_code, v.collected_at, v.ref_doctor,
+             p.id as patient_id, p.full_name as patient_name, p.uhid as patient_uhid
+      FROM reports r
+      JOIN visits v ON v.id = r.visit_id
+      JOIN patients p ON p.id = v.patient_id
+      WHERE (v.status IS NULL OR v.status != 'cancelled')
+        AND (r.status IS NULL OR r.status != 'cancelled')
+        AND r.printed_at IS NULL
+        AND (r.doctor_approval_status IS NULL OR (r.doctor_approval_status != 'approved' AND r.doctor_approval_status != 'rejected'))
+      ORDER BY r.created_at DESC
+    `;
+
+    const { rows } = await query(sql);
+    let reports = rows || [];
+
+    // Fallback store support only when in offline mode or DB query returned falsy
+    const fallbackStore = require('../db/fallbackStore');
+    if ((!rows || fallbackStore?.isOfflineMode) && fallbackStore?.reports) {
+      const fallbackList = fallbackStore.reports.filter((r) => {
+        const v = fallbackStore.visits?.find((vis) => vis.id === r.visit_id);
+        const isCancelled = v?.status === 'cancelled' || r.status === 'cancelled';
+        if (isCancelled) return false;
+        if (r.printed_at) return false;
+        if (r.doctor_approval_status === 'approved' || r.doctor_approval_status === 'rejected') return false;
+        return true;
+      });
+      if (fallbackList.length > 0) {
+        reports = fallbackList;
+      }
+    }
+
+    res.json({
+      success: true,
+      count: reports.length,
+      reports,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   calculateBillForVisit,
   generateReport,
@@ -989,7 +1049,9 @@ module.exports = {
   listReports,
   cancelReport,
   doctorApproval,
+  getDoctorPendingReports,
   doctorsStore,
   defaultRatesStore,
   doctorRatesStore,
 };
+
