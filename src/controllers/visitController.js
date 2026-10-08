@@ -69,7 +69,7 @@ async function createVisit(req, res, next) {
  */
 async function listVisits(req, res, next) {
   try {
-    const { patient_id, status, search } = req.query;
+    const { patient_id, status, search, visit_code } = req.query;
     const limit = Math.min(parseInt(req.query.limit || '50', 10), 100);
     const offset = parseInt(req.query.offset || '0', 10);
 
@@ -83,6 +83,11 @@ async function listVisits(req, res, next) {
       WHERE 1=1
     `;
     const params = [];
+
+    if (visit_code) {
+      params.push(visit_code.trim());
+      sql += ` AND v.visit_code = $${params.length}`;
+    }
 
     if (patient_id) {
       params.push(patient_id);
@@ -324,10 +329,42 @@ async function listReferringClinics(req, res, next) {
   }
 }
 
+/**
+ * Lookup Visit by exact visit_code
+ * GET /api/visits/by-code/:code
+ * Exact lookup independent of workstation scoping, role filters, or pagination limits
+ */
+async function getVisitByCode(req, res, next) {
+  try {
+    const { code } = req.params;
+    if (!code) {
+      return res.status(400).json({ success: false, error: 'Visit code is required' });
+    }
+    const { rows } = await query(
+      `SELECT v.*, p.full_name as patient_name, p.uhid as patient_uhid, p.gender as patient_gender,
+              r.id as report_id, r.report_code, r.barcode_value, r.status as report_status, r.qr_token,
+              r.doctor_approval_status, r.approved_by_doctor_name, r.approved_at, r.approval_note, r.printed_at
+       FROM visits v
+       JOIN patients p ON p.id = v.patient_id
+       LEFT JOIN reports r ON r.visit_id = v.id
+       WHERE v.visit_code = $1
+       LIMIT 1`,
+      [code.trim()]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Visit not found' });
+    }
+    res.json({ success: true, visit: rows[0] });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   createVisit,
   listVisits,
   getVisitById,
+  getVisitByCode,
   updateVisit,
   deleteVisit,
   listReferringClinics,

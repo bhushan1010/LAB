@@ -1,8 +1,16 @@
 const crypto = require('crypto');
 const { withTransaction, query } = require('../db');
 const { logAuditEvent } = require('../utils/audit');
+const { generateQrToken } = require('../utils/tokens');
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isPlaceholderQrToken(token) {
+  if (!token || typeof token !== 'string') return true;
+  const trimmed = token.trim();
+  if (!trimmed) return true;
+  return /^0{10,}/.test(trimmed) || trimmed.startsWith('demo-') || trimmed.toLowerCase() === 'placeholder';
+}
 
 function isValidUuid(val) {
   return typeof val === 'string' && UUID_REGEX.test(val.trim());
@@ -314,10 +322,13 @@ async function pushSync(req, res, next) {
 
       // 4. Sync Reports (Composite-scoped UUID: client_device_id + report_code + local_id)
       for (const r of reports) {
-        if (!r.report_code || !r.qr_token) continue;
+        if (!r.report_code) continue;
 
         // Resolve visit ID
         let resolvedVisitId = idMap.get(r.visit_id);
+        if (!resolvedVisitId && r.visit_id && isValidUuid(r.visit_id)) {
+          resolvedVisitId = r.visit_id.toLowerCase();
+        }
         if (!resolvedVisitId && visits.length > 0) {
           resolvedVisitId = idMap.get(visits[0].id) || idMap.get(visits[0].visit_code);
         }
@@ -327,13 +338,31 @@ async function pushSync(req, res, next) {
           ? r.id.toLowerCase()
           : toDeterministicUuid(client_device_id, r.report_code, r.id || r.report_code);
 
-        // Check existing report by ID, report_code, or qr_token
-        const existingRep = await client.query(
-          'SELECT id FROM reports WHERE id = $1 OR report_code = $2 OR qr_token = $3 LIMIT 1',
-          [normReportId, r.report_code, r.qr_token]
-        );
+        const isPlaceholderQr = !r.qr_token || isPlaceholderQrToken(r.qr_token);
+
+        // Check existing report by ID, report_code, or non-placeholder qr_token
+        // Never match an existing report on qr_token when the value is a known placeholder or empty
+        let existingRep;
+        if (isPlaceholderQr) {
+          existingRep = await client.query(
+            'SELECT id, qr_token FROM reports WHERE id = $1 OR report_code = $2 LIMIT 1',
+            [normReportId, r.report_code]
+          );
+        } else {
+          existingRep = await client.query(
+            'SELECT id, qr_token FROM reports WHERE id = $1 OR report_code = $2 OR qr_token = $3 LIMIT 1',
+            [normReportId, r.report_code, r.qr_token]
+          );
+        }
+
+        let effectiveQrToken;
         if (existingRep.rows.length > 0) {
           normReportId = existingRep.rows[0].id;
+          // Amendment 4: when matching an existing row by id or report_code and incoming qr_token is a placeholder or empty, do not overwrite the existing qr_token on update
+          effectiveQrToken = isPlaceholderQr ? existingRep.rows[0].qr_token : r.qr_token;
+        } else {
+          // New report: generate unique token if incoming was placeholder or empty
+          effectiveQrToken = isPlaceholderQr ? generateQrToken() : r.qr_token;
         }
 
         const reportStatus = normalizeReportStatus(r.status);
@@ -358,13 +387,14 @@ async function pushSync(req, res, next) {
             pdf_storage_path = EXCLUDED.pdf_storage_path,
             reported_at = EXCLUDED.reported_at,
             printed_at = EXCLUDED.printed_at,
+            qr_token = COALESCE(NULLIF(EXCLUDED.qr_token, ''), reports.qr_token),
             updated_at = NOW()`,
           [
             normReportId,
             resolvedVisitId,
             r.report_code,
             r.barcode_value,
-            r.qr_token,
+            effectiveQrToken,
             reportStatus,
             client_device_id,
             normalizeDate(r.updated_at) || new Date().toISOString(),

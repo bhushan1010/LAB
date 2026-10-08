@@ -13,6 +13,9 @@ router.get('/', visitController.listVisits);
 // List referring clinics with active client accounts
 router.get('/referring-clinics', visitController.listReferringClinics);
 
+// Lookup visit by exact code (independent of pagination/filters)
+router.get('/by-code/:code', visitController.getVisitByCode);
+
 // Get single visit with test results and report (front-desk, lab-tech, admin)
 router.get('/:id', visitController.getVisitById);
 

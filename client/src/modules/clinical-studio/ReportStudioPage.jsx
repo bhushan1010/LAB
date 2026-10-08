@@ -25,19 +25,118 @@ import {
   Loader2,
 } from 'lucide-react';
 
+/**
+ * Generate a cryptographically secure 64-char hex QR token.
+ * Throws an explicit error if window.crypto.getRandomValues is unavailable.
+ */
+function generateClientQrToken() {
+  if (typeof window === 'undefined' || !window.crypto || typeof window.crypto.getRandomValues !== 'function') {
+    throw new Error('Cryptographically secure random number generator (window.crypto.getRandomValues) is unavailable.');
+  }
+  const bytes = new Uint8Array(32);
+  window.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Check if a QR token is a static placeholder, all-zeros, demo, or empty.
+ */
+function isPlaceholderQrToken(token) {
+  if (!token || typeof token !== 'string') return true;
+  const trimmed = token.trim();
+  if (!trimmed) return true;
+  if (/^0{10,}/.test(trimmed)) return true;
+  if (trimmed === '0000000000000000000000000000000000000000000000000000000000001') return true;
+  if (trimmed.startsWith('demo-') || trimmed.startsWith('placeholder')) return true;
+  return false;
+}
+
+/**
+ * Offline classification per Amendment 2:
+ * Treat as offline only when navigator.onLine is false, or axios error with no response
+ * and code ERR_NETWORK or ECONNABORTED, or HTTP 502, 503, 504.
+ * All other HTTP 4xx and 5xx responses must halt with a visible error. Non-axios errors surface as errors.
+ */
+function isOfflineError(err) {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return true;
+  }
+  if (!err || typeof err !== 'object' || !err.isAxiosError) {
+    return false;
+  }
+  if (!err.response) {
+    if (err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED') {
+      return true;
+    }
+    return false;
+  }
+  const status = err.response.status;
+  if (status === 502 || status === 503 || status === 504) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Exact visit lookup by visit_code independent of workstation scoping, role filters, or pagination limits.
+ */
+async function lookupVisitByCode(visitCode) {
+  if (!visitCode || typeof visitCode !== 'string') return null;
+  const cleanCode = visitCode.trim();
+  if (!cleanCode) return null;
+
+  try {
+    const res = await api.get(`/visits/by-code/${encodeURIComponent(cleanCode)}`);
+    if (res.data?.success && res.data.visit) {
+      return res.data.visit;
+    }
+  } catch (err) {
+    if (err.response?.status === 404) {
+      return null;
+    }
+    if (isOfflineError(err)) {
+      throw err;
+    }
+    // Fallback query parameter lookup
+    try {
+      const searchRes = await api.get('/visits', { params: { visit_code: cleanCode } });
+      const found = searchRes.data?.visits?.find((v) => v.visit_code === cleanCode);
+      if (found) return found;
+    } catch (fallbackErr) {
+      if (isOfflineError(fallbackErr)) throw fallbackErr;
+    }
+    throw err;
+  }
+  return null;
+}
+
 export default function ReportStudioPage({ currentView = 'studio', onNavigate, initialReportData = null }) {
-  const [reportData, setReportData] = useState(initialReportData || DEFAULT_REPORT_DATA);
+  const [reportData, setReportData] = useState(() => {
+    if (initialReportData) {
+      return {
+        ...initialReportData,
+        qr_token: isPlaceholderQrToken(initialReportData.qr_token)
+          ? generateClientQrToken()
+          : initialReportData.qr_token,
+      };
+    }
+    return {
+      ...DEFAULT_REPORT_DATA,
+      qr_token: generateClientQrToken(),
+    };
+  });
   const [zoom, setZoom] = useState(85);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [lastSavedPdfBlob, setLastSavedPdfBlob] = useState(null);
-  const [publicUrl, setPublicUrl] = useState(
-    initialReportData?.qr_token
-      ? `${window.location.origin}/report/${initialReportData.qr_token}`
-      : `${window.location.origin}/report/${DEFAULT_REPORT_DATA.qr_token}`
-  );
+  const [publicUrl, setPublicUrl] = useState(() => {
+    const token = initialReportData?.qr_token && !isPlaceholderQrToken(initialReportData.qr_token)
+      ? initialReportData.qr_token
+      : null;
+    return token ? `${window.location.origin}/report/${token}` : '';
+  });
 
   // Close save modal on Escape key or after print dialog closes
   useEffect(() => {
@@ -60,12 +159,25 @@ export default function ReportStudioPage({ currentView = 'studio', onNavigate, i
   // Sync state whenever initialReportData changes (e.g. clicked "Open in Studio" from Print Queue)
   useEffect(() => {
     if (initialReportData) {
-      setReportData(initialReportData);
-      if (initialReportData.qr_token) {
-        setPublicUrl(`${window.location.origin}/report/${initialReportData.qr_token}`);
+      const token = isPlaceholderQrToken(initialReportData.qr_token)
+        ? generateClientQrToken()
+        : initialReportData.qr_token;
+      setReportData({
+        ...initialReportData,
+        qr_token: token,
+      });
+      if (token) {
+        setPublicUrl(`${window.location.origin}/report/${token}`);
       }
     }
   }, [initialReportData]);
+
+  // Keep publicUrl in sync whenever reportData.qr_token changes
+  useEffect(() => {
+    if (reportData?.qr_token && !isPlaceholderQrToken(reportData.qr_token)) {
+      setPublicUrl(`${window.location.origin}/report/${reportData.qr_token}`);
+    }
+  }, [reportData?.qr_token]);
 
   // Update helper functions
   const setPatient = (patient) => setReportData((prev) => ({ ...prev, patient }));
@@ -84,10 +196,11 @@ export default function ReportStudioPage({ currentView = 'studio', onNavigate, i
     // 1. Try to find an existing report in local IndexedDB
     const existing = await getReportByBarcode(scannedBarcode);
     if (existing) {
-      setReportData(existing);
-      if (existing.qr_token) {
-        setPublicUrl(`${window.location.origin}/report/${existing.qr_token}`);
-      }
+      const token = isPlaceholderQrToken(existing.qr_token)
+        ? generateClientQrToken()
+        : existing.qr_token;
+      setReportData({ ...existing, qr_token: token });
+      setPublicUrl(`${window.location.origin}/report/${token}`);
       setStatusMessage(`Found local record for Barcode: ${scannedBarcode}`);
       setTimeout(() => setStatusMessage(''), 4000);
       return;
@@ -102,8 +215,13 @@ export default function ReportStudioPage({ currentView = 'studio', onNavigate, i
   useBarcodeScanner(handleBarcodeScan);
 
   const handleLoadPreset = (preset) => {
-    setReportData(preset);
-    setPublicUrl(`${window.location.origin}/report/${preset.qr_token}`);
+    const freshToken = generateClientQrToken();
+    const updated = {
+      ...preset,
+      qr_token: freshToken,
+    };
+    setReportData(updated);
+    setPublicUrl(`${window.location.origin}/report/${freshToken}`);
     setStatusMessage(`Loaded Demo: ${preset.patient.title} ${preset.patient.full_name} (${preset.department.replace('DEPARTMENT OF ', '')})`);
     setTimeout(() => setStatusMessage(''), 4000);
   };
@@ -124,13 +242,17 @@ export default function ReportStudioPage({ currentView = 'studio', onNavigate, i
   };
 
   const handleSelectPatient = (newRecord) => {
+    const token = isPlaceholderQrToken(newRecord.qr_token)
+      ? generateClientQrToken()
+      : newRecord.qr_token;
     setReportData((prev) => ({
       ...prev,
       ...newRecord,
+      qr_token: token,
       labConfig: prev.labConfig,
     }));
-    if (newRecord.qr_token) {
-      setPublicUrl(`${window.location.origin}/report/${newRecord.qr_token}`);
+    if (token) {
+      setPublicUrl(`${window.location.origin}/report/${token}`);
     }
     setStatusMessage(
       `Loaded Record: ${newRecord.patient?.title || ''} ${newRecord.patient?.full_name || ''} (${newRecord.department?.replace('DEPARTMENT OF ', '') || 'General'})`
@@ -139,8 +261,10 @@ export default function ReportStudioPage({ currentView = 'studio', onNavigate, i
   };
 
   const handleNewPatient = () => {
+    const freshToken = generateClientQrToken();
     const newRecord = {
       ...reportData,
+      qr_token: freshToken,
       patient: {
         id: '',
         uhid: 'DEMO.' + Math.floor(100000 + Math.random() * 900000),
@@ -199,6 +323,7 @@ export default function ReportStudioPage({ currentView = 'studio', onNavigate, i
       },
     };
     setReportData(newRecord);
+    setPublicUrl(`${window.location.origin}/report/${freshToken}`);
     setStatusMessage('Started new patient record with fresh visit');
     setTimeout(() => setStatusMessage(''), 4000);
   };
@@ -249,45 +374,99 @@ export default function ReportStudioPage({ currentView = 'studio', onNavigate, i
     }
 
     setSaving(true);
-    setStatusMessage('Generating PDF & saving locally...');
+    setStatusMessage('Generating PDF & saving...');
 
     try {
       let finalReportRecord = { ...reportData };
 
+      // Ensure qr_token is never a placeholder or empty
+      if (isPlaceholderQrToken(finalReportRecord.qr_token)) {
+        finalReportRecord.qr_token = generateClientQrToken();
+      }
+
       // Step A: Attempt server synchronization if online
       if (navigator.onLine) {
         try {
-          // 1. Create or get patient
-          let patientId = reportData.patient.id;
-          if (!patientId || patientId.startsWith('11111111')) {
-            const patientRes = await api.post('/patients', {
-              title: reportData.patient.title,
-              full_name: reportData.patient.full_name,
-              uhid: reportData.patient.uhid,
-              age_years: reportData.patient.age_years || null,
-              gender: reportData.patient.gender,
-              phone: reportData.patient.phone || null,
-            });
-            patientId = patientRes.data.patient.id;
-            finalReportRecord.patient = { ...finalReportRecord.patient, id: patientId };
+          const visitCode = reportData.visit.visit_code.trim();
+
+          // 1. Check whether visit already exists by exact visit_code
+          let existingVisit = null;
+          try {
+            existingVisit = await lookupVisitByCode(visitCode);
+          } catch (lookupErr) {
+            if (isOfflineError(lookupErr)) {
+              throw lookupErr;
+            }
+            throw lookupErr;
           }
 
-          // 2. Create visit
-          let visitId = reportData.visit.id;
-          const visitRes = await api.post('/visits', {
-            patient_id: patientId,
-            visit_code: reportData.visit.visit_code,
-            ref_doctor: reportData.visit.ref_doctor,
-            client_name: reportData.visit.client_name,
-            client_code: reportData.visit.client_code,
-            sample_type: reportData.visit.sample_type,
-            collected_at: new Date().toISOString(),
-            status: 'completed',
-          });
-          visitId = visitRes.data.visit.id;
-          finalReportRecord.visit = { ...finalReportRecord.visit, id: visitId };
+          let visitId;
+          let patientId;
 
-          // 3. Save test results in bulk
+          if (existingVisit) {
+            // Existing visit found: reuse its id and patient_id.
+            // Do NOT overwrite visit fields with local data, and do NOT POST /api/visits.
+            visitId = existingVisit.id;
+            patientId = existingVisit.patient_id || reportData.patient.id;
+            finalReportRecord.visit = { ...finalReportRecord.visit, id: visitId, patient_id: patientId };
+            finalReportRecord.patient = { ...finalReportRecord.patient, id: patientId };
+          } else {
+            // Visit does not exist: create patient (if needed) and register visit
+            patientId = reportData.patient.id;
+            if (!patientId || patientId.startsWith('11111111') || patientId.startsWith('loc-')) {
+              const patientRes = await api.post('/patients', {
+                title: reportData.patient.title,
+                full_name: reportData.patient.full_name,
+                uhid: reportData.patient.uhid,
+                age_years: reportData.patient.age_years || null,
+                gender: reportData.patient.gender,
+                phone: reportData.patient.phone || null,
+              });
+              patientId = patientRes.data.patient.id;
+              finalReportRecord.patient = { ...finalReportRecord.patient, id: patientId };
+            }
+
+            try {
+              const visitRes = await api.post('/visits', {
+                patient_id: patientId,
+                visit_code: visitCode,
+                ref_doctor: reportData.visit.ref_doctor,
+                client_name: reportData.visit.client_name,
+                client_code: reportData.visit.client_code,
+                sample_type: reportData.visit.sample_type,
+                collected_at: new Date().toISOString(),
+                status: 'registered',
+              });
+              visitId = visitRes.data.visit.id;
+              finalReportRecord.visit = { ...finalReportRecord.visit, id: visitId, patient_id: patientId };
+            } catch (postVisitErr) {
+              // Amendment 1: If POST /visits returns 409 or 23505 race condition, re-run lookup once and reuse
+              const isConflict =
+                postVisitErr.response?.status === 409 ||
+                postVisitErr.response?.data?.code === '23505' ||
+                (typeof postVisitErr.response?.data?.error === 'string' &&
+                  (postVisitErr.response.data.error.includes('already exists') ||
+                   postVisitErr.response.data.error.includes('duplicate key')));
+
+              if (isConflict) {
+                const retryVisit = await lookupVisitByCode(visitCode);
+                if (retryVisit) {
+                  visitId = retryVisit.id;
+                  finalReportRecord.visit = { ...finalReportRecord.visit, id: visitId, patient_id: retryVisit.patient_id };
+                  if (retryVisit.patient_id) {
+                    patientId = retryVisit.patient_id;
+                    finalReportRecord.patient = { ...finalReportRecord.patient, id: patientId };
+                  }
+                } else {
+                  throw postVisitErr;
+                }
+              } else {
+                throw postVisitErr;
+              }
+            }
+          }
+
+          // 2. Save test results in bulk
           await api.post('/test-results/bulk', {
             visit_id: visitId,
             results: reportData.testResults.map((t, idx) => ({
@@ -302,11 +481,11 @@ export default function ReportStudioPage({ currentView = 'studio', onNavigate, i
             })),
           });
 
-          // 4. Generate report with barcode & unguessable QR token
+          // 3. Generate report with barcode & unguessable QR token
           const reportRes = await api.post('/reports/generate', {
             visit_id: visitId,
             barcode_value: reportData.barcode_value,
-            interpretation: reportData.interpretation.enabled
+            interpretation: reportData.interpretation?.enabled
               ? JSON.stringify(reportData.interpretation)
               : null,
             status: 'final',
@@ -318,8 +497,18 @@ export default function ReportStudioPage({ currentView = 'studio', onNavigate, i
           finalReportRecord.report_code = generated.report_code;
           finalReportRecord.sync_status = 'synced';
         } catch (apiErr) {
-          console.warn('Server sync failed during save, switching to offline-first local queue:', apiErr.message);
-          finalReportRecord.sync_status = 'unsynced';
+          // Amendment 2: Offline classification
+          if (isOfflineError(apiErr)) {
+            console.warn('Server unreachable / gateway offline, switching to offline-first local queue:', apiErr.message);
+            finalReportRecord.sync_status = 'unsynced';
+          } else {
+            // All other HTTP 4xx and 5xx responses halt with a visible error. Non-axios errors surface as errors, never as offline.
+            console.error('Save and finalize server error:', apiErr);
+            const msg = apiErr.response?.data?.error || apiErr.message || 'Server request failed';
+            alert(`Save & Finalize Failed: ${msg}`);
+            setSaving(false);
+            return;
+          }
         }
       } else {
         finalReportRecord.sync_status = 'unsynced';
@@ -332,6 +521,9 @@ export default function ReportStudioPage({ currentView = 'studio', onNavigate, i
       if (!finalReportRecord.report_code) {
         finalReportRecord.report_code = 'REP-' + Date.now().toString().slice(-6);
       }
+      if (!finalReportRecord.qr_token || isPlaceholderQrToken(finalReportRecord.qr_token)) {
+        finalReportRecord.qr_token = generateClientQrToken();
+      }
 
       // Step C: Compile A4 PDF Blob client-side
       const printableElem = document.getElementById('printable-report');
@@ -340,7 +532,7 @@ export default function ReportStudioPage({ currentView = 'studio', onNavigate, i
         try {
           pdfBlob = await generatePdfBlob(
             printableElem,
-            `Report-${finalReportRecord.patient.full_name.replace(/\s+/g, '_')}.pdf`
+            `Report-${finalReportRecord.patient?.full_name?.replace(/\s+/g, '_') || 'Lab'}.pdf`
           );
           setLastSavedPdfBlob(pdfBlob);
         } catch (pdfErr) {
